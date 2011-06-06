@@ -7,6 +7,9 @@
 #include "font2.h"
 #include "font3.h"
 
+#undef abs
+#include <stdlib.h>
+
 #define ht1632c_lib
 #include <ht1632c.h>
 //#undef ht1632c
