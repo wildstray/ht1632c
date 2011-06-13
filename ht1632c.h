@@ -134,7 +134,11 @@ public:
     void plot (byte x, byte y, byte color);
     void putchar(int x, int y, char c, byte color);
     void scrolltextxcolor(int y, const char *text, byte color, int delaytime, int times, byte dir);
-
+    void line(int x0, int y0, int x1, int y1, byte color);
+    void rect(int x0, int y0, int x1, int y1, byte color);
+    void circle(int xm, int ym, int r, byte color);
+    void ellipse(int x0, int y0, int x1, int y1, byte color);
+    
     byte *framebuffer;
     word framesize;
 //    byte cs_max;

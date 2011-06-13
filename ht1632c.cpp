@@ -362,3 +362,68 @@ void ht1632c::scrolltextxcolor(int y, const char *text, byte color, int delaytim
   }
 }
 
+void ht1632c::line(int x0, int y0, int x1, int y1, byte color)
+{
+  int dx =  abs(x1-x0), sx = x0<x1 ? 1 : -1;
+  int dy = -abs(y1-y0), sy = y0<y1 ? 1 : -1; 
+  int err = dx+dy, e2; /* error value e_xy */
+
+  for(;;) {
+    plot(x0, y0, color);
+    if (x0 == x1 && y0 == y1) break;
+    e2 = 2*err;
+    if (e2 >= dy) { err += dy; x0 += sx; } /* e_xy+e_x > 0 */
+    if (e2 <= dx) { err += dx; y0 += sy; } /* e_xy+e_y < 0 */
+  }
+}
+
+void ht1632c::rect(int x0, int y0, int x1, int y1, byte color)
+{
+  line(x0, y0, x0, y1, color);
+  line(x1, y0, x1, y1, color);
+  line(x0, y0, x1, y0, color);
+  line(x0, y1, x1, y1, color);
+}
+
+void ht1632c::circle(int xm, int ym, int r, byte color)
+{
+  int x = -r, y = 0, err = 2-2*r; /* II. Quadrant */ 
+  do {
+    plot(xm - x, ym + y, color); /*   I. Quadrant */
+    plot(xm - y, ym - x, color); /*  II. Quadrant */
+    plot(xm + x, ym - y, color); /* III. Quadrant */
+    plot(xm + y, ym + x, color); /*  IV. Quadrant */
+    r = err;
+    if (r >  x) err += ++x * 2 + 1; /* e_xy+e_x > 0 */
+    if (r <= y) err += ++y * 2 + 1; /* e_xy+e_y < 0 */
+  } while (x < 0);
+}
+
+void ht1632c::ellipse(int x0, int y0, int x1, int y1, byte color)
+{
+  int a = abs(x1 - x0), b = abs(y1 - y0), b1 = b & 1; /* values of diameter */
+  long dx = 4 * (1 - a) * b * b, dy = 4 * (b1 + 1) * a * a; /* error increment */
+  long err = dx + dy + b1 * a * a, e2; /* error of 1.step */
+
+  if (x0 > x1) { x0 = x1; x1 += a; } /* if called with swapped points */
+  if (y0 > y1) y0 = y1; /* .. exchange them */
+  y0 += (b + 1) / 2; /* starting pixel */
+  y1 = y0 - b1;
+  a *= 8 * a; 
+  b1 = 8 * b * b;
+
+  do {
+    plot(x1, y0, color); /*   I. Quadrant */
+    plot(x0, y0, color); /*  II. Quadrant */
+    plot(x0, y1, color); /* III. Quadrant */
+    plot(x1, y1, color); /*  IV. Quadrant */
+    e2 = 2*err;
+    if (e2 >= dx) { x0++; x1--; err += dx += b1; } /* x step */
+    if (e2 <= dy) { y0++; y1--; err += dy += a; }  /* y step */ 
+  } while (x0 <= x1);
+
+  while (y0-y1 < b) {  /* too early stop of flat ellipses a=1 */
+    plot(x0 - 1, ++y0, color); /* -> complete tip of ellipse */
+    plot(x0 - 1, --y1, color); 
+  }
+}
