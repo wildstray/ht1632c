@@ -6,6 +6,7 @@
 #ifndef ht1632c_h
 #define ht1632c_h
 
+#include <WProgram.h>
 
 /*
  * commands written to the chip consist of a 3 bit "ID", followed by
@@ -132,12 +133,17 @@ public:
     void clear();
     void update_framebuffer(word addr, byte target_bitval, byte pixel_bitval);
     void plot (byte x, byte y, byte color);
+    byte getpixel (byte x, byte y);
     void putchar(int x, int y, char c, byte color);
     void scrolltextxcolor(int y, const char *text, byte color, int delaytime, int times, byte dir);
     void line(int x0, int y0, int x1, int y1, byte color);
     void rect(int x0, int y0, int x1, int y1, byte color);
     void circle(int xm, int ym, int r, byte color);
     void ellipse(int x0, int y0, int x1, int y1, byte color);
+    void fill_r (byte x, byte y, byte color);
+    void fill_l (byte x, byte y, byte color);
+    void fill (byte x, byte y, byte color);
+    void bezier(int x0, int y0, int x1, int y1, int x2, int y2, byte color);
     
     byte *framebuffer;
     word framesize;

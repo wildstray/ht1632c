@@ -417,13 +417,96 @@ void ht1632c::ellipse(int x0, int y0, int x1, int y1, byte color)
     plot(x0, y0, color); /*  II. Quadrant */
     plot(x0, y1, color); /* III. Quadrant */
     plot(x1, y1, color); /*  IV. Quadrant */
-    e2 = 2*err;
+    e2 = 2 * err;
     if (e2 >= dx) { x0++; x1--; err += dx += b1; } /* x step */
     if (e2 <= dy) { y0++; y1--; err += dy += a; }  /* y step */ 
   } while (x0 <= x1);
 
-  while (y0-y1 < b) {  /* too early stop of flat ellipses a=1 */
+  while (y0 - y1 < b) {  /* too early stop of flat ellipses a=1 */
     plot(x0 - 1, ++y0, color); /* -> complete tip of ellipse */
     plot(x0 - 1, --y1, color); 
+  }
+}
+
+byte ht1632c::getpixel (byte x, byte y)
+{
+  word addr = (x & 63) + 8*(y & ~7);
+  byte g = framebuffer[addr];
+  byte r = framebuffer[addr+128];
+  byte valbit = 1 << (7 - y & 7);
+  return (g & valbit) ? GREEN : BLACK | (r & valbit) ? RED : BLACK;
+}
+
+void ht1632c::fill_r(byte x, byte y, byte color)
+{
+  if(!getpixel(x, y))
+  {
+    plot(x, y, color);
+    fill_r(++x, y ,color);
+    x = x - 1 ;
+    fill_r(x, y-1, color);
+    fill_r(x, y+1, color);
+  }
+}
+
+void ht1632c::fill_l(byte x, byte y, byte color)
+{
+  if(!getpixel(x, y))
+  {
+    plot(x, y, color);
+    fill_l(--x, y, color);
+    x = x + 1 ;
+    fill_l(x, y-1, color);
+    fill_l(x, y+1, color);
+  }
+}
+
+void ht1632c::fill(byte x, byte y, byte color)
+{
+  fill_r(x, y, color);
+  fill_l(x-1, y, color);
+}
+
+void ht1632c::bezier(int x0, int y0, int x1, int y1, int x2, int y2, byte color)
+{
+  int sx = x0 < x2 ? 1 : -1, sy = y0<y2 ? 1 : -1; /* step direction */
+  int cur = sx * sy * ((x0 - x1) * (y2 - y1) - (x2 - x1) * (y0 - y1)); /* curvature */
+  int x = x0 - 2 * x1 + x2, y = y0 - 2 * y1 + y2, xy = 2 * x * y * sx * sy;
+                                /* compute error increments of P0 */
+  long dx = (1 - 2 * abs(x0 - x1)) * y * y + abs(y0 - y1) * xy - 2 * cur * abs(y0 - y2);
+  long dy = (1 - 2 * abs(y0 - y1)) * x * x + abs(x0 - x1) * xy + 2 * cur * abs(x0 - x2);
+                                /* compute error increments of P2 */
+  long ex = (1 - 2 * abs(x2 - x1)) * y * y + abs(y2 - y1) * xy + 2 * cur * abs(y0 - y2);
+  long ey = (1 - 2 * abs(y2 - y1)) * x * x + abs(x2 - x1) * xy - 2 * cur * abs(x0 - x2);
+
+//                              /* sign of gradient must not change */
+//  assert((x0-x1)*(x2-x1) <= 0 && (y0-y1)*(y2-y1) <= 0); 
+
+  if (cur == 0) { line(x0, y0, x2, y2, color); return; } /* straight line */
+     
+  x *= 2 * x; y *= 2 * y;
+  if (cur < 0) {                             /* negated curvature */
+    x = -x; dx = -dx; ex = -ex; xy = -xy;
+    y = -y; dy = -dy; ey = -ey;
+  }
+  /* algorithm fails for almost straight line, check error values */
+  if (dx >= -y || dy <= -x || ex <= -y || ey >= -x) {        
+    line(x0, y0, x1, y1, color);                /* simple approximation */
+    line(x1, y1, x2, y2, color);
+    return;
+  }
+  dx -= xy; ex = dx+dy; dy -= xy;              /* error of 1.step */
+
+  for(;;) {                                         /* plot curve */
+    plot(x0, y0, color);
+    ey = 2 * ex - dy;                /* save value for test of y step */
+    if (2 * ex >= dx) {                                   /* x step */
+      if (x0 == x2) break;
+      x0 += sx; dy -= xy; ex += dx += y; 
+    }
+    if (ey <= 0) {                                      /* y step */
+      if (y0 == y2) break;
+      y0 += sy; dx -= xy; ex += dy += x; 
+    }
   }
 }
