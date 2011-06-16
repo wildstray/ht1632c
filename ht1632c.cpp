@@ -123,6 +123,8 @@ void ht1632c::sendcmd (byte cs, byte command)
   _chipselect(HT1632_CS_NONE);
 }
 
+/* HT1632Cs based display initialization  */
+
 void ht1632c::setup()
 {
 /*
@@ -142,10 +144,14 @@ void ht1632c::setup()
   interrupts();
 }
 
+/* set the display brightness */ 
+
 void ht1632c::pwm(byte value)
 {
   sendcmd(HT1632_CS_ALL, HT1632_CMD_PWM | value);
 }
+
+/* write the framebuffer to the display - to be used after one or more textual or graphic functions */ 
 
 void ht1632c::sendframe()
 {
@@ -169,6 +175,8 @@ void ht1632c::sendframe()
   interrupts();
 }
 
+/* clear the display */
+
 void ht1632c::clear()
 {
   memset(framebuffer, 0, framesize);
@@ -180,6 +188,8 @@ void ht1632c::update_framebuffer(word addr, byte target_bitval, byte pixel_bitva
   byte &v = framebuffer[addr];
   (target_bitval) ? v |= pixel_bitval : v &= ~pixel_bitval;
 }
+
+/* put a single pixel in the coordinates x, y */
 
 void ht1632c::plot (byte x, byte y, byte color)
 {
@@ -198,6 +208,8 @@ void ht1632c::plot (byte x, byte y, byte color)
   update_framebuffer(addr, (color & GREEN), bitval);
   update_framebuffer(addr+128, (color & RED), bitval); 
 }
+
+/* print a single character */
 
 void ht1632c::putchar(int x, int y, char c, byte color = GREEN)
 {
@@ -341,12 +353,14 @@ void ht1632c::putchar(int x, int y, char c, byte color = GREEN)
   sendframe();
 }
 
-void ht1632c::scrolltextxcolor(int y, const char *text, byte color, int delaytime, int times = 1, byte dir = LEFT)
+/* text only scrolling */
+
+void ht1632c::scrolltextxcolor(int y, const char *text, byte color, int delaytime, int times, byte dir)
 {
   int c = 0, x, len = strlen(text) + 1;
   byte showcolor;
   while (times) {
-    for ((dir) ? x = -(len * 6) : x = x_max; (dir) ? x <= x_max : x > -(len * 6); (dir) ? x++ : x--)
+    for ((dir) ? x = - (len * 6) : x = x_max; (dir) ? x <= x_max : x > - (len * 6); (dir) ? x++ : x--)
     {
       for (int i = 0; i < len; i++)
       {
@@ -361,6 +375,8 @@ void ht1632c::scrolltextxcolor(int y, const char *text, byte color, int delaytim
     times--;
   }
 }
+
+/* graphic primitives based on Bresenham's algorithms */
 
 void ht1632c::line(int x0, int y0, int x1, int y1, byte color)
 {
@@ -379,10 +395,10 @@ void ht1632c::line(int x0, int y0, int x1, int y1, byte color)
 
 void ht1632c::rect(int x0, int y0, int x1, int y1, byte color)
 {
-  line(x0, y0, x0, y1, color);
-  line(x1, y0, x1, y1, color);
-  line(x0, y0, x1, y0, color);
-  line(x0, y1, x1, y1, color);
+  line(x0, y0, x0, y1, color); /* left line   */
+  line(x1, y0, x1, y1, color); /* right line  */
+  line(x0, y0, x1, y0, color); /* top line    */
+  line(x0, y1, x1, y1, color); /* bottom line */
 }
 
 void ht1632c::circle(int xm, int ym, int r, byte color)
@@ -428,6 +444,49 @@ void ht1632c::ellipse(int x0, int y0, int x1, int y1, byte color)
   }
 }
 
+void ht1632c::bezier(int x0, int y0, int x1, int y1, int x2, int y2, byte color)
+{
+  int sx = x0 < x2 ? 1 : -1, sy = y0<y2 ? 1 : -1; /* step direction */
+  int cur = sx * sy * ((x0 - x1) * (y2 - y1) - (x2 - x1) * (y0 - y1)); /* curvature */
+  int x = x0 - 2 * x1 + x2, y = y0 - 2 * y1 + y2, xy = 2 * x * y * sx * sy;
+                                /* compute error increments of P0 */
+  long dx = (1 - 2 * abs(x0 - x1)) * y * y + abs(y0 - y1) * xy - 2 * cur * abs(y0 - y2);
+  long dy = (1 - 2 * abs(y0 - y1)) * x * x + abs(x0 - x1) * xy + 2 * cur * abs(x0 - x2);
+                                /* compute error increments of P2 */
+  long ex = (1 - 2 * abs(x2 - x1)) * y * y + abs(y2 - y1) * xy + 2 * cur * abs(y0 - y2);
+  long ey = (1 - 2 * abs(y2 - y1)) * x * x + abs(x2 - x1) * xy - 2 * cur * abs(x0 - x2);
+
+  if (cur == 0) { line(x0, y0, x2, y2, color); return; } /* straight line */
+     
+  x *= 2 * x; y *= 2 * y;
+  if (cur < 0) {                             /* negated curvature */
+    x = -x; dx = -dx; ex = -ex; xy = -xy;
+    y = -y; dy = -dy; ey = -ey;
+  }
+  /* algorithm fails for almost straight line, check error values */
+  if (dx >= -y || dy <= -x || ex <= -y || ey >= -x) {        
+    line(x0, y0, x1, y1, color);                /* simple approximation */
+    line(x1, y1, x2, y2, color);
+    return;
+  }
+  dx -= xy; ex = dx+dy; dy -= xy;              /* error of 1.step */
+
+  for(;;) {                                         /* plot curve */
+    plot(x0, y0, color);
+    ey = 2 * ex - dy;                /* save value for test of y step */
+    if (2 * ex >= dx) {                                   /* x step */
+      if (x0 == x2) break;
+      x0 += sx; dy -= xy; ex += dx += y; 
+    }
+    if (ey <= 0) {                                      /* y step */
+      if (y0 == y2) break;
+      y0 += sy; dx -= xy; ex += dy += x; 
+    }
+  }
+}
+
+/* returns the pixel value (RED, GREEN, ORANGE or 0/BLACK) of x, y coordinates */
+
 byte ht1632c::getpixel (byte x, byte y)
 {
   word addr = (x & 63) + 8*(y & ~7);
@@ -436,6 +495,8 @@ byte ht1632c::getpixel (byte x, byte y)
   byte valbit = 1 << (7 - y & 7);
   return (g & valbit) ? GREEN : BLACK | (r & valbit) ? RED : BLACK;
 }
+
+/* boundary flood fill with the seed in x, y coordinates */
 
 void ht1632c::fill_r(byte x, byte y, byte color)
 {
@@ -467,46 +528,3 @@ void ht1632c::fill(byte x, byte y, byte color)
   fill_l(x-1, y, color);
 }
 
-void ht1632c::bezier(int x0, int y0, int x1, int y1, int x2, int y2, byte color)
-{
-  int sx = x0 < x2 ? 1 : -1, sy = y0<y2 ? 1 : -1; /* step direction */
-  int cur = sx * sy * ((x0 - x1) * (y2 - y1) - (x2 - x1) * (y0 - y1)); /* curvature */
-  int x = x0 - 2 * x1 + x2, y = y0 - 2 * y1 + y2, xy = 2 * x * y * sx * sy;
-                                /* compute error increments of P0 */
-  long dx = (1 - 2 * abs(x0 - x1)) * y * y + abs(y0 - y1) * xy - 2 * cur * abs(y0 - y2);
-  long dy = (1 - 2 * abs(y0 - y1)) * x * x + abs(x0 - x1) * xy + 2 * cur * abs(x0 - x2);
-                                /* compute error increments of P2 */
-  long ex = (1 - 2 * abs(x2 - x1)) * y * y + abs(y2 - y1) * xy + 2 * cur * abs(y0 - y2);
-  long ey = (1 - 2 * abs(y2 - y1)) * x * x + abs(x2 - x1) * xy - 2 * cur * abs(x0 - x2);
-
-//                              /* sign of gradient must not change */
-//  assert((x0-x1)*(x2-x1) <= 0 && (y0-y1)*(y2-y1) <= 0); 
-
-  if (cur == 0) { line(x0, y0, x2, y2, color); return; } /* straight line */
-     
-  x *= 2 * x; y *= 2 * y;
-  if (cur < 0) {                             /* negated curvature */
-    x = -x; dx = -dx; ex = -ex; xy = -xy;
-    y = -y; dy = -dy; ey = -ey;
-  }
-  /* algorithm fails for almost straight line, check error values */
-  if (dx >= -y || dy <= -x || ex <= -y || ey >= -x) {        
-    line(x0, y0, x1, y1, color);                /* simple approximation */
-    line(x1, y1, x2, y2, color);
-    return;
-  }
-  dx -= xy; ex = dx+dy; dy -= xy;              /* error of 1.step */
-
-  for(;;) {                                         /* plot curve */
-    plot(x0, y0, color);
-    ey = 2 * ex - dy;                /* save value for test of y step */
-    if (2 * ex >= dx) {                                   /* x step */
-      if (x0 == x2) break;
-      x0 += sx; dy -= xy; ex += dx += y; 
-    }
-    if (ey <= 0) {                                      /* y step */
-      if (y0 == y2) break;
-      y0 += sy; dx -= xy; ex += dy += x; 
-    }
-  }
-}

@@ -135,7 +135,7 @@ public:
     void plot (byte x, byte y, byte color);
     byte getpixel (byte x, byte y);
     void putchar(int x, int y, char c, byte color);
-    void scrolltextxcolor(int y, const char *text, byte color, int delaytime, int times, byte dir);
+    void scrolltextxcolor(int y, const char *text, byte color, int delaytime, int times = 1, byte dir = LEFT);
     void line(int x0, int y0, int x1, int y1, byte color);
     void rect(int x0, int y0, int x1, int y1, byte color);
     void circle(int xm, int ym, int r, byte color);
