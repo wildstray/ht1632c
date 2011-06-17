@@ -19,8 +19,10 @@ void loop() {
   dy2 = random(1,4);
   while (1) {
     ledMatrix.line(x1,y1, x2,y2, random(1,4));
+    ledMatrix.sendframe();
     delay(100);
     ledMatrix.line(x1,y1, x2,y2, 0);
+    ledMatrix.sendframe();
 
     x1 += dx1;
     if (x1 > ledMatrix.x_max) {
