@@ -4,6 +4,7 @@
 #ifndef _font3_h
 #define _font3_h
 
+//unsigned char PROGMEM my3font[94][6] = {
 unsigned char PROGMEM my3font[94][6] = {
 {0b00000000,
  0b00000000,
