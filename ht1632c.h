@@ -7,6 +7,7 @@
 #define ht1632c_h
 
 #include <WProgram.h>
+#include <avr/pgmspace.h>
 
 /*
  * commands written to the chip consist of a 3 bit "ID", followed by
@@ -51,6 +52,10 @@
 #define RANDOMCOLOR  4
 #define MULTICOLOR   8
 #define BLINK       16
+
+#define BOLD         1
+#define UNDERLINE    2
+#define ITALIC       4
 
 #define LEFT         0
 #define RIGHT        1
@@ -120,7 +125,7 @@ class ht1632c {
 
 public:
     //ht1632c(volatile uint8_t *port, const byte data, const byte wr, const byte clk, const byte cs, const byte geometry, const byte number);
-    ht1632c(const byte geometry, const byte number);
+    ht1632c(const byte geometry, const byte number = 1);
     //void begin(const byte data, const byte wr, const byte clk, const byte cs, byte geometry, byte number);
     //void begin(const byte data, const byte wr, const byte cs1, const byte cs2, const byte cs3, const byte cs4, byte geometry, byte number);
 
@@ -134,7 +139,7 @@ public:
     void update_framebuffer(word addr, byte target_bitval, byte pixel_bitval);
     void plot (byte x, byte y, byte color);
     byte getpixel (byte x, byte y);
-    void putchar(int x, int y, char c, byte color);
+    void putchar(int x, int y, char c, byte color = GREEN, byte attr = 0);
     void scrolltextxcolor(int y, const char *text, byte color, int delaytime, int times = 1, byte dir = LEFT);
     void line(int x0, int y0, int x1, int y1, byte color);
     void rect(int x0, int y0, int x1, int y1, byte color);
@@ -151,6 +156,8 @@ public:
     byte x_max;
     byte y_max;
     boolean bicolor;
+    prog_char *font;
+    byte font_width;
 
 /*
     void _data_set();

@@ -26,7 +26,7 @@ void _clk_pulse(byte num)
 }
 */
 
-ht1632c::ht1632c(const byte geometry, const byte number = 1)
+ht1632c::ht1632c(const byte geometry, const byte number)
 {
   if (geometry != GEOM_32x16) return;
   bicolor = true;
@@ -35,6 +35,8 @@ ht1632c::ht1632c(const byte geometry, const byte number = 1)
   cs_max = 4 * number;
   framesize = 32 * cs_max;
   framebuffer = (byte*) malloc(framesize);
+  font = (prog_char *) &my3font[0];
+  font_width = sizeof(my3font[0]);
 
   _data_out();
   _wr_out();
@@ -211,19 +213,9 @@ void ht1632c::plot (byte x, byte y, byte color)
 
 /* print a single character */
 
-void ht1632c::putchar(int x, int y, char c, byte color = GREEN)
+void ht1632c::putchar (int x, int y, char c, byte color, byte attr)
 {
   byte dots;
-  //if (c >= 'A' && c <= 'Z' ||
-  //  (c >= 'a' && c <= 'z') ) {
-  //  c &= 0x1F;   // A-Z maps to 1-26
-  //} 
-  //else if (c >= '0' && c <= '9') {
-  //  c = (c - '0') + 27;
-  //} 
-  //else if (c == ' ') {
-  //  c = 0; // space
-  //}
 
   if (c == ' ') {c = 0;}
   else if (c == '!') {c = 1;}
@@ -273,91 +265,36 @@ void ht1632c::putchar(int x, int y, char c, byte color = GREEN)
   else if (c == '|') {c = 92;}
   else if (c == '}') {c = 93;}
 
-/*
-  for (char col=0; col< 6; col++) {
-    dots = pgm_read_byte_near(&my3font[c][col]);
+  for (char col=0; col < font_width; col++) {
+    // some math with pointers... don't try this at home ;-)
+    prog_char *addr = font + c * font_width + col;
+    dots = pgm_read_byte_near(addr);
+    // future use... char attribute TODO
     //if ((attr && BOLD) && (col > 0)) {
-      //dots |= pgm_read_byte_near(&my3font[c][col-1]);
+    //  dots |= pgm_read_byte_near(addr-1);
     //}
     //if ((attr && ITALIC) && (col > 0)) {
       //dots |= pgm_read_byte_near(&my3font[c][col-1]);
     //}
     for (char row=0; row <=7; row++) {
-      if (dots & (64>>row))   	     // only 7 rows.
-        dotmatrix.plot(x+col, y+row, color);
-      else 
-        dotmatrix.plot(x+col, y+row, BLACK);
-      //if ((attr && UNDERLINE) && (row == 7))
-        //dotmatrix.plot(x+col, y+row, color);
-    }
-  }
-*/
-  /*for (char col=0; col< 6; col++) {
-    dots = pgm_read_byte_near(&my3font[c][col]);
-    for (char row=0; row <=7; row++) {
       if (dots & (128>>row))
-        dotmatrix.plot2(x+col, y+row, color);
+        plot(x+col, y+row, color);
       else 
-        dotmatrix.plot2(x+col, y+row, BLACK);
-    }
-  }*/
-  /*if (!(y & 7)) {
-    for (char col=0; col< 6; col++) {
-      dots = pgm_read_byte_near(&my3font[c][col]) << 1;
-      byte x1 = x + col;
-      word addr = x1 + (x1 & ~15) + 2*(x1 & ~31) + 8*(y & ~7);
-      ht1632_update_shadowram(addr, (color & GREEN), dots);
-      ht1632_update_shadowram(addr+16, (color & RED), dots);
-    }
-  }*/
-
-
-  byte len = sizeof(my3font[c]); 
-  int s = 0;
-
-  if (x < -len || x > x_max || y < 0 || y > y_max)
-    return;
-
-  if ((x + len) > 63)
-    len -= ((x + len) & 63);
-
-  word addr = x;
-
-  if (x < 0) {
-    s = -x;
-    len -= s;
-    addr = 0;
-  }
-
-  addr += 8*(y & ~7);
-
- if (color & MULTICOLOR) color += RED | GREEN;
- if (color & GREEN) {
-    memcpy_P(&framebuffer[addr],&my3font[c][s],len);
-  } else {
-    memset(&framebuffer[addr],0,len);
-  }
-  if (color & RED) {
-    memcpy_P(&framebuffer[addr+128],&my3font[c][s],len);
-  } else {
-    memset(&framebuffer[addr+128],0,len);
-  }
-  if (color & MULTICOLOR) {
-    byte mask[8] = {0};
-    for (byte i = 0; i < len; i++) {
-      byte mask = 2*random(127);
-      if (random(2)) framebuffer[addr+i] &= ~mask;
-      if (random(2)) framebuffer[addr+128+i] &= mask;
+        plot(x+col, y+row, BLACK);
+      //if ((attr && UNDERLINE) && (row == 7))
+      //    plot(x+col, y+row, color);
+      //else if ((row == 7))
+      //    plot(x+col, y+row, BLACK);
     }
   }
-  sendframe();
+
 }
 
 /* text only scrolling */
 
 void ht1632c::scrolltextxcolor(int y, const char *text, byte color, int delaytime, int times, byte dir)
 {
-  int c = 0, x, len = strlen(text) + 1;
+  int x, len = strlen(text) + 1;
   byte showcolor;
   while (times) {
     for ((dir) ? x = - (len * 6) : x = x_max; (dir) ? x <= x_max : x > - (len * 6); (dir) ? x++ : x--)
@@ -368,8 +305,7 @@ void ht1632c::scrolltextxcolor(int y, const char *text, byte color, int delaytim
         ((color & BLINK) && (x & 2)) ? showcolor = BLACK : showcolor = showcolor;
         putchar(x + 6 * i,  y, text[i], showcolor);
       }
-      c++;
-      //delay(delaytime+abs((int)(c-(float)(len*3+(x_max/2)))/2));
+      sendframe();
       delay(delaytime);
     }
     times--;
