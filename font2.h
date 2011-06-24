@@ -1,7 +1,6 @@
 // copied from http://heim.ifi.uio.no/haakoh/avr/a
 
-#ifndef _font2_h
-#define _font2_h
+#ifndef ht1632c_lib
 
 unsigned char PROGMEM my2font[256][8]={
 {0b00000000,

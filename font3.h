@@ -1,8 +1,7 @@
 // copied from http://heim.ifi.uio.no/haakoh/avr/a
 //const int font_count = 94;
 
-#ifndef _font3_h
-#define _font3_h
+#ifndef ht1632c_lib
 
 //unsigned char PROGMEM my3font[94][6] = {
 unsigned char PROGMEM my3font[94][6] = {
