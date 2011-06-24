@@ -79,25 +79,12 @@ word counter = 0;
 void loop ()
 {
   counter++;  
-  //launch_fps_benchmark(); return; 
-
-//  char tmp[20];
-//  sprintf(tmp, "%d", counter);
-//  byte len = strlen(tmp);
-//  for (int i = 0; i < len; i++)
-//     ht1632_putchar2(6*i,  8, tmp[i], GREEN);
-//  delay(1000);
-
-//  sprintf(tmp, " %02d/%02d/%02d ", day(), month(), year());
-//  scrolltextxcolor(8,tmp,GREEN,50);
-//  scrolltextxcolor(8,"123 PROVA ",RED,50);
-// scrolltextxcolor(8,"PROVA ",ORANGE,50);
-  dotmatrix.scrolltextxcolor(8,"MULTICOLOR ",MULTICOLOR, 20, 1, LEFT);
-  dotmatrix.scrolltextxcolor(8,"RED ",RED, 10, 1, LEFT);
-  dotmatrix.scrolltextxcolor(8,"RED+BLINK ",RED | BLINK, 30, 1, LEFT);
-  dotmatrix.scrolltextxcolor(8,"RANDOM COLOR ",RANDOMCOLOR, 50, 1, LEFT);
-  dotmatrix.scrolltextxcolor(8,"GREEN ",GREEN, 10, 1, LEFT);
-  dotmatrix.scrolltextxcolor(8,"ORANGE ",ORANGE, 10, 1, LEFT);
+  dotmatrix.hscrolltext(8,"MULTICOLOR ",MULTICOLOR, 20, 1, LEFT);
+  dotmatrix.hscrolltext(8,"RED ",RED, 10, 1, LEFT);
+  dotmatrix.hscrolltext(8,"RED+BLINK ",RED | BLINK, 30, 1, LEFT);
+  dotmatrix.hscrolltext(8,"RANDOM COLOR ",RANDOMCOLOR, 50, 1, LEFT);
+  dotmatrix.hscrolltext(8,"GREEN ",GREEN, 10, 1, LEFT);
+  dotmatrix.hscrolltext(8,"ORANGE ",ORANGE, 10, 1, LEFT);
   dotmatrix.clear();
 
   Timer1.detachInterrupt(); 
