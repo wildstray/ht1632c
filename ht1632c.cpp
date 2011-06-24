@@ -4,15 +4,12 @@
 #include <WProgram.h>
 #include "pins_arduino.h"
 #include "font.h"
-#include "font2.h"
-#include "font3.h"
 
 #undef abs
 #include <stdlib.h>
 
 #define ht1632c_lib
 #include <ht1632c.h>
-//#undef ht1632c
 
 //void ht1632c::_clk_pulse(byte num)
 /*
@@ -35,8 +32,7 @@ ht1632c::ht1632c(const byte geometry, const byte number)
   cs_max = 4 * number;
   framesize = 32 * cs_max;
   framebuffer = (byte*) malloc(framesize);
-  font = (prog_char *) &my3font[0];
-  font_width = sizeof(my3font[0]);
+  set_font(FONT_5x7);
 
   _data_out();
   _wr_out();
@@ -213,57 +209,12 @@ void ht1632c::plot (byte x, byte y, byte color)
 
 /* print a single character */
 
-void ht1632c::putchar (int x, int y, char c, byte color, byte attr)
+byte ht1632c::putchar (int x, int y, char c, byte color, byte attr)
 {
-  byte dots;
+  byte dots, width = font_width;
 
-  if (c == ' ') {c = 0;}
-  else if (c == '!') {c = 1;}
-  else if (c == '"') {c = 2;}
-  else if (c == '#') {c = 3;}
-  else if (c == '$') {c = 4;}
-  else if (c == '%') {c = 5;}
-  else if (c == '&') {c = 6;}
-  //else if (c == ''') {c = 7;}
-  else if (c == '(') {c = 8;}
-  else if (c == ')') {c = 9;}
-  else if (c == '*') {c = 10;}
-  else if (c == '+') {c = 11;}
-  else if (c == ',') {c = 12;}
-  else if (c == '-') {c = 13;}
-  else if (c == '.') {c = 14;}
-  else if (c == '/') {c = 15;}  
-
-  else if (c >= '0' && c <= '9') {
-    c = (c - '0') + 16;
-  }
-
-  else if (c == ':') {c = 26;} 
-  else if (c == ';') {c = 27;} 
-  else if (c == '<') {c = 28;}
-  else if (c == '=') {c = 29;}
-  else if (c == '>') {c = 30;}
-  else if (c == '?') {c = 31;}
-  else if (c == '@') {c = 32;}   
-
-  else if (c >= 'A' && c <= 'Z') {
-    c = (c - 'A') + 33;
-  }
-
-  else if (c == '[') {c = 59;}
-  //else if (c == '\') {c = 60;}
-  else if (c == ']') {c = 61;}
-  else if (c == '^') {c = 62;}
-  else if (c == '_') {c = 63;}
-  else if (c == '`') {c = 64;}
-
-  else if (c >= 'a' && c <= 'z') {
-    c = (c - 'a') + 65;
-  }
-
-  else if (c == '{') {c = 91;}
-  else if (c == '|') {c = 92;}
-  else if (c == '}') {c = 93;}
+  Serial.println(c, DEC);
+  c -= 32;
 
   for (char col=0; col < font_width; col++) {
     // some math with pointers... don't try this at home ;-)
@@ -276,40 +227,84 @@ void ht1632c::putchar (int x, int y, char c, byte color, byte attr)
     //if ((attr && ITALIC) && (col > 0)) {
       //dots |= pgm_read_byte_near(&my3font[c][col-1]);
     //}
-    for (char row=0; row <=7; row++) {
-      if (dots & (128>>row))
-        plot(x+col, y+row, color);
-      else 
-        plot(x+col, y+row, BLACK);
-      //if ((attr && UNDERLINE) && (row == 7))
-      //    plot(x+col, y+row, color);
-      //else if ((row == 7))
-      //    plot(x+col, y+row, BLACK);
+    if (dots) {
+      for (char row = 0; row < font_height; row++) {
+        if (dots & (128>>row))
+          plot(x+col, y+row, color);
+        else 
+          plot(x+col, y+row, BLACK);
+    //if ((attr && UNDERLINE) && (row == 7))
+    //    plot(x+col, y+row, color);
+    //else if ((row == 7))
+    //    plot(x+col, y+row, BLACK);
+      }
+    } else if (attr & PROPORTIONAL) {
+      width--;
+      x--;
     }
   }
-
+  return width;
 }
 
-/* text only scrolling */
+/* text only scrolling functions */
 
-void ht1632c::scrolltextxcolor(int y, const char *text, byte color, int delaytime, int times, byte dir)
+void ht1632c::hscrolltext(int y, const char *text, byte color, int delaytime, int times, byte dir)
 {
   int x, len = strlen(text) + 1;
   byte showcolor;
   while (times) {
-    for ((dir) ? x = - (len * 6) : x = x_max; (dir) ? x <= x_max : x > - (len * 6); (dir) ? x++ : x--)
+    for ((dir) ? x = - (len * font_width) : x = x_max; (dir) ? x <= x_max : x > - (len * font_width); (dir) ? x++ : x--)
     {
       for (int i = 0; i < len; i++)
       {
         (color & RANDOMCOLOR) ? showcolor = random(3) + 1 : showcolor = color;
         ((color & BLINK) && (x & 2)) ? showcolor = BLACK : showcolor = showcolor;
-        putchar(x + 6 * i,  y, text[i], showcolor);
+        putchar(x + font_width * i,  y, text[i], showcolor);
       }
       sendframe();
       delay(delaytime);
     }
     times--;
   }
+}
+
+void ht1632c::vscrolltext(int x, const char *text, byte color, int delaytime, int times, byte dir)
+{
+  int y, len = strlen(text) + 1;
+  byte showcolor;
+  while (times) {
+    for ((dir) ? y = - font_height : y = y_max + 1; (dir) ? y <= y_max + 1 : y > - font_height; (dir) ? y++ : y--)
+    {
+      for (int i = 0; i < len; i++)
+      {
+        (color & RANDOMCOLOR) ? showcolor = random(3) + 1 : showcolor = color;
+        ((color & BLINK) && (x & 2)) ? showcolor = BLACK : showcolor = showcolor;
+        putchar(x + font_width * i,  y, text[i], showcolor);
+      }
+      // quick and dirty fix to avoid wakes
+      line (x, y - 1, x + font_width * len, y - 1, BLACK);
+      sendframe();
+      delay(delaytime);
+    }
+    times--;
+  }
+}
+
+/* choose/change font to use (for next putchar) */
+
+void ht1632c::set_font(byte userfont)
+{
+  switch(userfont) {
+    case FONT_5x7: 
+	font = (prog_char *) &font_5x7[0];
+	font_width = sizeof(font_5x7[0]);
+	break;
+    case FONT_8x8: 
+	font = (prog_char *) &font_8x8[0];
+	font_width = sizeof(font_8x8[0]);
+	break;
+  }
+  font_height = 8;
 }
 
 /* graphic primitives based on Bresenham's algorithms */

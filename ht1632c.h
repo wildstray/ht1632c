@@ -56,11 +56,15 @@
 #define BOLD         1
 #define UNDERLINE    2
 #define ITALIC       4
+#define PROPORTIONAL 8
 
 #define LEFT         0
 #define RIGHT        1
-#define UP           2
-#define DOWN         3
+#define UP           0
+#define DOWN         1
+
+#define FONT_5x7     0
+#define FONT_8x8     1
 
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
@@ -139,8 +143,10 @@ public:
     void update_framebuffer(word addr, byte target_bitval, byte pixel_bitval);
     void plot (byte x, byte y, byte color);
     byte getpixel (byte x, byte y);
-    void putchar(int x, int y, char c, byte color = GREEN, byte attr = 0);
-    void scrolltextxcolor(int y, const char *text, byte color, int delaytime, int times = 1, byte dir = LEFT);
+    byte putchar(int x, int y, char c, byte color = GREEN, byte attr = 0);
+    void hscrolltext(int y, const char *text, byte color, int delaytime, int times = 1, byte dir = LEFT);
+    void vscrolltext(int x, const char *text, byte color, int delaytime, int times = 1, byte dir = UP);
+    void set_font(byte userfont);
     void line(int x0, int y0, int x1, int y1, byte color);
     void rect(int x0, int y0, int x1, int y1, byte color);
     void circle(int xm, int ym, int r, byte color);
@@ -158,6 +164,7 @@ public:
     boolean bicolor;
     prog_char *font;
     byte font_width;
+    byte font_height;
 
 /*
     void _data_set();
