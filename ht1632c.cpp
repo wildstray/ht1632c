@@ -213,7 +213,6 @@ byte ht1632c::putchar (int x, int y, char c, byte color, byte attr)
 {
   byte dots, width = font_width;
 
-  Serial.println(c, DEC);
   c -= 32;
 
   for (char col=0; col < font_width; col++) {
