@@ -226,7 +226,7 @@ byte ht1632c::putchar (int x, int y, char c, byte color, byte attr)
     //if ((attr && ITALIC) && (col > 0)) {
       //dots |= pgm_read_byte_near(&my3font[c][col-1]);
     //}
-    if (dots) {
+    if ((dots) || !(attr & PROPORTIONAL)) {
       for (char row = 0; row < font_height; row++) {
         if (dots & (128>>row))
           plot(x+col, y+row, color);
