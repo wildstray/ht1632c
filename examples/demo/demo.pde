@@ -70,6 +70,7 @@ void callback()
   byte len = strlen(tmp);
   for (int i = 0; i < len; i++)
      dotmatrix.putchar(6*i,  0, tmp[i], GREEN);
+  dotmatrix.sendframe();
   wdt_reset();
 }
 
@@ -110,6 +111,7 @@ void loop ()
   byte len = strlen(tmp);
   for (int i = 0; i < len; i++)
      dotmatrix.putchar(6*i,  8, tmp[i], ORANGE);
+  dotmatrix.sendframe();
 
 byte v;
 for (v = 0; v < 16; v++)
@@ -137,8 +139,4 @@ for (v = 15; v > 0; v--)
 return;  
 
 }
-
-
-
-
 
