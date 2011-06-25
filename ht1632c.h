@@ -84,6 +84,8 @@
 #define FONT_8x13O  19
 #define FONT_9x15   20
 #define FONT_9x15B  21
+#define FONT_8x16   22
+#define FONT_8x16B  23
 
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))

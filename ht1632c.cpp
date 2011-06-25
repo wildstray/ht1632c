@@ -456,6 +456,20 @@ void ht1632c::set_font(byte userfont)
 	font_height = 15;
 	break;
 #endif
+#ifdef FONT_8x16
+    case FONT_8x16:
+	wfont = (prog_uint16_t *) &font_8x16[0];
+	font_width = 8;
+	font_height = 16;
+	break;
+#endif
+#ifdef FONT_8x16B
+    case FONT_8x16B:
+	wfont = (prog_uint16_t *) &font_8x16b[0];
+	font_width = 8;
+	font_height = 16;
+	break;
+#endif
   }
 }
 
