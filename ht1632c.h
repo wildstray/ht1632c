@@ -167,7 +167,7 @@ public:
     byte putchar(int x, int y, char c, byte color = GREEN, byte attr = 0);
     void hscrolltext(int y, const char *text, byte color, int delaytime, int times = 1, byte dir = LEFT);
     void vscrolltext(int x, const char *text, byte color, int delaytime, int times = 1, byte dir = UP);
-    void set_font(byte userfont);
+    void setfont(byte userfont);
     void line(int x0, int y0, int x1, int y1, byte color);
     void rect(int x0, int y0, int x1, int y1, byte color);
     void circle(int xm, int ym, int r, byte color);

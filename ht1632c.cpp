@@ -41,7 +41,7 @@ ht1632c::ht1632c(const byte geometry, const byte number)
   cs_max = 4 * number;
   framesize = 32 * cs_max;
   framebuffer = (byte*) malloc(framesize);
-  set_font(FONT_5x7W);
+  setfont(FONT_5x7W);
   x_cur = 0;
   y_cur = 0;
 
@@ -310,7 +310,7 @@ void ht1632c::vscrolltext(int x, const char *text, byte color, int delaytime, in
 
 /* choose/change font to use (for next putchar) */
 
-void ht1632c::set_font(byte userfont)
+void ht1632c::setfont(byte userfont)
 {
   switch(userfont) {
 
