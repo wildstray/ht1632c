@@ -123,7 +123,7 @@ void ht1632c::writebits (byte bits, byte msb)
   }
 }
 */
-void ht1632c::sendcmd (byte cs, byte command)
+void ht1632c::sendcmd(byte cs, byte command)
 {
   _chipselect(cs);
   _writebits(HT1632_ID_CMD, HT1632_ID_LEN);
@@ -222,7 +222,7 @@ void ht1632c::plot (byte x, byte y, byte color)
 
 /* print a single character */
 
-byte ht1632c::putchar (int x, int y, char c, byte color, byte attr)
+byte ht1632c::putchar(int x, int y, char c, byte color, byte attr)
 {
   byte width = font_width;
   word dots, msb;
@@ -608,7 +608,7 @@ void ht1632c::bezier(int x0, int y0, int x1, int y1, int x2, int y2, byte color)
 
 /* returns the pixel value (RED, GREEN, ORANGE or 0/BLACK) of x, y coordinates */
 
-byte ht1632c::getpixel (byte x, byte y)
+byte ht1632c::getpixel(byte x, byte y)
 {
   word addr = (x & 63) + 8*(y & ~7);
   byte g = framebuffer[addr];

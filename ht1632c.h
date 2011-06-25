@@ -156,14 +156,14 @@ public:
 
 //    void chipselect(byte cs);
 //    void writebits (byte bits, byte len);
-    void sendcmd (byte cs, byte command);
+    void sendcmd(byte cs, byte command);
     void setup();
     void pwm(byte value);
     void sendframe();
     void clear();
     void update_framebuffer(word addr, byte target_bitval, byte pixel_bitval);
-    void plot (byte x, byte y, byte color);
-    byte getpixel (byte x, byte y);
+    void plot(byte x, byte y, byte color);
+    byte getpixel(byte x, byte y);
     byte putchar(int x, int y, char c, byte color = GREEN, byte attr = 0);
     void putbitmap(int x, int y, prog_uint16_t *bitmap, byte w, byte h, byte color);
     void hscrolltext(int y, const char *text, byte color, int delaytime, int times = 1, byte dir = LEFT);
@@ -173,9 +173,9 @@ public:
     void rect(int x0, int y0, int x1, int y1, byte color);
     void circle(int xm, int ym, int r, byte color);
     void ellipse(int x0, int y0, int x1, int y1, byte color);
-    void fill_r (byte x, byte y, byte color);
-    void fill_l (byte x, byte y, byte color);
-    void fill (byte x, byte y, byte color);
+    void fill_r(byte x, byte y, byte color);
+    void fill_l(byte x, byte y, byte color);
+    void fill(byte x, byte y, byte color);
     void bezier(int x0, int y0, int x1, int y1, int x2, int y2, byte color);
     
     void write(uint8_t chr);
