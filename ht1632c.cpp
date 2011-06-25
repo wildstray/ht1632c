@@ -226,6 +226,9 @@ byte ht1632c::putchar (int x, int y, char c, byte color, byte attr)
 {
   byte width = font_width;
   word dots, msb;
+
+  if (x < -font_width || x > x_max + font_width || y < -font_height || y > y_max + font_height)
+    return 0;
   
   c -= 32;
   msb = pow2(font_height-1);
