@@ -165,6 +165,7 @@ public:
     void plot (byte x, byte y, byte color);
     byte getpixel (byte x, byte y);
     byte putchar(int x, int y, char c, byte color = GREEN, byte attr = 0);
+    void putbitmap(int x, int y, prog_uint16_t *bitmap, byte w, byte h, byte color);
     void hscrolltext(int y, const char *text, byte color, int delaytime, int times = 1, byte dir = LEFT);
     void vscrolltext(int x, const char *text, byte color, int delaytime, int times = 1, byte dir = UP);
     void setfont(byte userfont);

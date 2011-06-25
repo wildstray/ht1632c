@@ -25,6 +25,7 @@ rect			KEYWORD2
 fill			KEYWORD2
 getpixel		KEYWORD2
 setfont			KEYWORD2
+putbitmap		KEYWORD2
 
 #######################################
 # Constants (LITERAL1)
