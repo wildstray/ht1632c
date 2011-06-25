@@ -63,8 +63,27 @@
 #define UP           0
 #define DOWN         1
 
-#define FONT_5x7     0
-#define FONT_8x8     1
+#define FONT_4x6     1
+#define FONT_5x7     2
+#define FONT_5x8     3
+#define FONT_5x7W    4
+//#define FONT_6x10    5
+//#define FONT_6x12    6
+//#define FONT_6x13    7
+//#define FONT_6x13B   8
+//#define FONT_6x13O   9
+//#define FONT_6x9    10
+//#define FONT_7x13   11
+//#define FONT_7x13B  12
+//#define FONT_7x13O  13
+//#define FONT_7x14   14
+//#define FONT_7x14B  15
+#define FONT_8x8    16
+#define FONT_8x13   17
+#define FONT_8x13B  18
+#define FONT_8x13O  19
+#define FONT_9x15   20
+#define FONT_9x15B  21
 
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
@@ -121,7 +140,7 @@ public:
 
 
 //class ht1632c : private _data, private _wr, private _clk, private _cs {
-class ht1632c {
+class ht1632c : public Print {
 
 #ifdef putchar
 #undef putchar
@@ -156,16 +175,22 @@ public:
     void fill (byte x, byte y, byte color);
     void bezier(int x0, int y0, int x1, int y1, int x2, int y2, byte color);
     
+    void write(uint8_t chr);
+    void write(const char *str);
+    //void write(const uint8_t *buffer, size_t size);
+            
     byte *framebuffer;
     word framesize;
 //    byte cs_max;
     byte x_max;
     byte y_max;
     boolean bicolor;
-    prog_char *font;
+    prog_uint8_t *font;
+    prog_uint16_t *wfont;
     byte font_width;
     byte font_height;
-
+    byte x_cur;
+    byte y_cur;
 /*
     void _data_set();
     void _data_clr();

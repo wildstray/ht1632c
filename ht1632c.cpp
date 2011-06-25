@@ -1,15 +1,14 @@
 #include <avr/io.h> 
 #include <avr/wdt.h>
 #include <avr/pgmspace.h>
-#include <WProgram.h>
-#include "pins_arduino.h"
-#include "font.h"
+#include "Print.h"
 
 #undef abs
 #include <stdlib.h>
 
 #define ht1632c_lib
 #include <ht1632c.h>
+#include "font.h"
 
 //void ht1632c::_clk_pulse(byte num)
 /*
@@ -23,6 +22,16 @@ void _clk_pulse(byte num)
 }
 */
 
+word pow2(byte exp)
+{
+  word result = 1;
+  while(exp--)
+  {
+    result *= 2;
+  }
+  return result;
+}
+
 ht1632c::ht1632c(const byte geometry, const byte number)
 {
   if (geometry != GEOM_32x16) return;
@@ -32,7 +41,9 @@ ht1632c::ht1632c(const byte geometry, const byte number)
   cs_max = 4 * number;
   framesize = 32 * cs_max;
   framebuffer = (byte*) malloc(framesize);
-  set_font(FONT_5x7);
+  set_font(FONT_5x7W);
+  x_cur = 0;
+  y_cur = 0;
 
   _data_out();
   _wr_out();
@@ -177,6 +188,8 @@ void ht1632c::sendframe()
 
 void ht1632c::clear()
 {
+  x_cur = 0;
+  y_cur = 0;
   memset(framebuffer, 0, framesize);
   sendframe();
 }
@@ -211,14 +224,17 @@ void ht1632c::plot (byte x, byte y, byte color)
 
 byte ht1632c::putchar (int x, int y, char c, byte color, byte attr)
 {
-  byte dots, width = font_width;
-
+  byte width = font_width;
+  word dots, msb;
+  
   c -= 32;
-
-  for (char col=0; col < font_width; col++) {
-    // some math with pointers... don't try this at home ;-)
-    prog_char *addr = font + c * font_width + col;
-    dots = pgm_read_byte_near(addr);
+  msb = pow2(font_height-1);
+  
+  // some math with pointers... don't try this at home ;-)
+  prog_uint8_t *addr = font + c * font_width;
+  prog_uint16_t *waddr = wfont + c * font_width;
+  for (char col = 0; col < font_width; col++) {
+    dots = (font_height > 8) ? pgm_read_word_near(waddr + col) : pgm_read_byte_near(addr + col);
     // future use... char attribute TODO
     //if ((attr && BOLD) && (col > 0)) {
     //  dots |= pgm_read_byte_near(addr-1);
@@ -228,7 +244,7 @@ byte ht1632c::putchar (int x, int y, char c, byte color, byte attr)
     //}
     if ((dots) || !(attr & PROPORTIONAL)) {
       for (char row = 0; row < font_height; row++) {
-        if (dots & (128>>row))
+        if (dots & (msb>>row))
           plot(x+col, y+row, color);
         else 
           plot(x+col, y+row, BLACK);
@@ -249,7 +265,7 @@ byte ht1632c::putchar (int x, int y, char c, byte color, byte attr)
 
 void ht1632c::hscrolltext(int y, const char *text, byte color, int delaytime, int times, byte dir)
 {
-  int x, len = strlen(text) + 1;
+  int x, len = strlen(text);
   byte showcolor;
   while (times) {
     for ((dir) ? x = - (len * font_width) : x = x_max; (dir) ? x <= x_max : x > - (len * font_width); (dir) ? x++ : x--)
@@ -269,7 +285,7 @@ void ht1632c::hscrolltext(int y, const char *text, byte color, int delaytime, in
 
 void ht1632c::vscrolltext(int x, const char *text, byte color, int delaytime, int times, byte dir)
 {
-  int y, len = strlen(text) + 1;
+  int y, len = strlen(text);
   byte showcolor;
   while (times) {
     for ((dir) ? y = - font_height : y = y_max + 1; (dir) ? y <= y_max + 1 : y > - font_height; (dir) ? y++ : y--)
@@ -294,16 +310,153 @@ void ht1632c::vscrolltext(int x, const char *text, byte color, int delaytime, in
 void ht1632c::set_font(byte userfont)
 {
   switch(userfont) {
-    case FONT_5x7: 
-	font = (prog_char *) &font_5x7[0];
-	font_width = sizeof(font_5x7[0]);
+
+#ifdef FONT_4x6
+    case FONT_4x6:
+	font = (prog_uint8_t *) &font_4x6[0];
+	font_width = 4;
+	font_height = 6;
 	break;
-    case FONT_8x8: 
-	font = (prog_char *) &font_8x8[0];
-	font_width = sizeof(font_8x8[0]);
+#endif
+#ifdef FONT_5x7
+    case FONT_5x7:
+	font = (prog_uint8_t *) &font_5x7[0];
+	font_width = 5;
+	font_height = 7;
 	break;
+#endif
+#ifdef FONT_5x8
+    case FONT_5x8:
+	font = (prog_uint8_t *) &font_5x8[0];
+	font_width = 5;
+	font_height = 8;
+	break;
+#endif
+    case FONT_5x7W:
+	font = (prog_uint8_t *) &font_5x7w[0];
+	font_width = 5;
+	font_height = 8;
+	break;
+#ifdef FONT_6x10
+    case FONT_6x10:
+	wfont = (prog_uint16_t *) &font_6x10[0];
+	font_width = 6;
+	font_height = 10;
+	break;
+#endif
+#ifdef FONT_6x12
+    case FONT_6x12:
+	wfont = (prog_uint16_t *) &font_6x12[0];
+	font_width = 6;
+	font_height = 12;
+	break;
+#endif
+#ifdef FONT_6x13
+    case FONT_6x13:
+	wfont = (prog_uint16_t *) &font_6x13[0];
+	font_width = 6;
+	font_height = 13;
+	break;
+#endif
+#ifdef FONT_6x13B
+    case FONT_6x13B:
+	wfont = (prog_uint16_t *) &font_6x13B[0];
+	font_width = 6;
+	font_height = 13;
+	break;
+#endif
+#ifdef FONT_6x13O
+    case FONT_6x13O:
+	wfont = (prog_uint16_t *) &font_6x13O[0];
+	font_width = 6;
+	font_height = 13;
+	break;
+#endif
+#ifdef FONT_6x9
+    case FONT_6x9:
+	wfont = (prog_uint16_t *) &font_6x9[0];
+	font_width = 6;
+	font_height = 9;
+	break;
+#endif
+#ifdef FONT_7x13
+    case FONT_7x13:
+	wfont = (prog_uint16_t *) &font_7x13[0];
+	font_width = 7;
+	font_height = 13;
+	break;
+#endif
+#ifdef FONT_7x13B
+    case FONT_7x13B:
+	wfont = (prog_uint16_t *) &font_7x13B[0];
+	font_width = 7;
+	font_height = 13;
+	break;
+#endif
+#ifdef FONT_7x13O
+    case FONT_7x13O:
+	wfont = (prog_uint16_t *) &font_7x13O[0];
+	font_width = 7;
+	font_height = 13;
+	break;
+#endif
+#ifdef FONT_7x14
+    case FONT_7x14:
+	wfont = (prog_uint16_t *) &font_7x14[0];
+	font_width = 7;
+	font_height = 14;
+	break;
+#endif
+#ifdef FONT_7x14B
+    case FONT_7x14B:
+	wfont = (prog_uint16_t *) &font_7x14B[0];
+	font_width = 7;
+	font_height = 14;
+	break;
+#endif
+#ifdef FONT_8x8
+    case FONT_8x8:
+	font = (prog_uint8_t *) &font_8x8[0];
+	font_width = 8;
+	font_height = 8;
+	break;
+#endif
+#ifdef FONT_8x13
+    case FONT_8x13:
+	wfont = (prog_uint16_t *) &font_8x13[0];
+	font_width = 8;
+	font_height = 13;
+	break;
+#endif
+#ifdef FONT_8x13B
+    case FONT_8x13B:
+	wfont = (prog_uint16_t *) &font_8x13B[0];
+	font_width = 8;
+	font_height = 13;
+	break;
+#endif
+#ifdef FONT_8x13O
+    case FONT_8x13O:
+	wfont = (prog_uint16_t *) &font_8x13O[0];
+	font_width = 8;
+	font_height = 13;
+	break;
+#endif
+#ifdef FONT_9x15
+    case FONT_9x15:
+	wfont = (prog_uint16_t *) &font_9x15[0];
+	font_width = 9;
+	font_height = 15;
+	break;
+#endif
+#ifdef FONT_9x15B
+    case FONT_9x15B:
+	wfont = (prog_uint16_t *) &font_9x15b[0];
+	font_width = 9;
+	font_height = 15;
+	break;
+#endif
   }
-  font_height = 8;
 }
 
 /* graphic primitives based on Bresenham's algorithms */
@@ -458,3 +611,36 @@ void ht1632c::fill(byte x, byte y, byte color)
   fill_l(x-1, y, color);
 }
 
+void ht1632c::write(uint8_t chr)
+{
+  byte x, y;
+  if (chr == '\n') {
+    //y_cur += font_height;
+  } else {
+    //x_cur += putchar(x_cur, y_cur, chr, GREEN, PROPORTIONAL);
+    //x_cur = 0;
+    //y_cur = 0;
+  }
+  //sendframe();
+}
+
+void ht1632c::write(const char *str)
+{
+  byte x, y;
+  byte len = strlen(str);
+  if (x_cur + font_width <= x_max)
+    for (byte i = 0; i < len; i++)
+    {
+      if (str[i] == '\n') {
+        y_cur += font_height;
+        x_cur = 0;
+        if (y_cur > y_max) break;
+      } else {
+        x_cur += putchar(x_cur, y_cur, str[i], GREEN, PROPORTIONAL);
+        if (x_cur + font_width > x_max) break;
+      }
+    }
+  //x_cur = 0;
+  //y_cur = 0;
+  sendframe();
+}
