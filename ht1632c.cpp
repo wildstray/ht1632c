@@ -268,6 +268,8 @@ byte ht1632c::putchar (int x, int y, char c, byte color, byte attr)
 
 void ht1632c::putbitmap(int x, int y, prog_uint16_t *bitmap, byte w, byte h, byte color)
 {
+  if (x < -w || x > x_max + w || y < -h || y > y_max + h)
+    return;
   word msb = pow2(w-1);
   for (byte row = 0; row < h; row++)
   {
@@ -619,11 +621,14 @@ byte ht1632c::getpixel (byte x, byte y)
 
 void ht1632c::fill_r(byte x, byte y, byte color)
 {
+  if (x > x_max) return;
+  if (y > y_max) return;
   if(!getpixel(x, y))
   {
     plot(x, y, color);
     fill_r(++x, y ,color);
-    x = x - 1 ;
+    x = x - 1;
+    if (x > x_max) return;
     fill_r(x, y-1, color);
     fill_r(x, y+1, color);
   }
@@ -631,6 +636,8 @@ void ht1632c::fill_r(byte x, byte y, byte color)
 
 void ht1632c::fill_l(byte x, byte y, byte color)
 {
+  if (x > x_max) return;
+  if (y > y_max) return;
   if(!getpixel(x, y))
   {
     plot(x, y, color);
