@@ -264,6 +264,25 @@ byte ht1632c::putchar (int x, int y, char c, byte color, byte attr)
   return width;
 }
 
+/* put a bitmap in the coordinates x, y */
+
+void ht1632c::putbitmap(int x, int y, prog_uint16_t *bitmap, byte w, byte h, byte color)
+{
+  word msb = pow2(w-1);
+  for (byte row = 0; row < h; row++)
+  {
+    uint16_t dots = pgm_read_word_near(&bitmap[row]);
+    if (dots && color)
+      for (byte col = 0; col < w; col++)
+      {
+	if (dots & (msb>>col))
+	  plot(x+col, y+row, color);
+	else
+	  plot(x+col, y+row, BLACK);
+      }
+  }
+}
+
 /* text only scrolling functions */
 
 void ht1632c::hscrolltext(int y, const char *text, byte color, int delaytime, int times, byte dir)
