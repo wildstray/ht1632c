@@ -247,10 +247,11 @@ byte ht1632c::putchar(int x, int y, char c, byte color, byte attr)
     //}
     if ((dots) || !(attr & PROPORTIONAL)) {
       for (char row = 0; row < font_height; row++) {
-        if (dots & (msb>>row))
-          plot(x+col, y+row, color);
-        else 
+        if (dots & (msb>>row)) {
+          plot(x+col, y+row, (color & MULTICOLOR) ? random(1,4) : color);
+        } else {
           plot(x+col, y+row, BLACK);
+        }
     //if ((attr && UNDERLINE) && (row == 7))
     //    plot(x+col, y+row, color);
     //else if ((row == 7))
@@ -296,8 +297,8 @@ void ht1632c::hscrolltext(int y, const char *text, byte color, int delaytime, in
     {
       for (int i = 0; i < len; i++)
       {
-        (color & RANDOMCOLOR) ? showcolor = random(3) + 1 : showcolor = color;
-        ((color & BLINK) && (x & 2)) ? showcolor = BLACK : showcolor = showcolor;
+        showcolor = (color & RANDOMCOLOR) ? random(1,4) : color;
+        showcolor = ((color & BLINK) && (x & 2)) ? BLACK : (showcolor & ~BLINK);
         putchar(x + font_width * i,  y, text[i], showcolor);
       }
       sendframe();
@@ -316,8 +317,8 @@ void ht1632c::vscrolltext(int x, const char *text, byte color, int delaytime, in
     {
       for (int i = 0; i < len; i++)
       {
-        (color & RANDOMCOLOR) ? showcolor = random(3) + 1 : showcolor = color;
-        ((color & BLINK) && (x & 2)) ? showcolor = BLACK : showcolor = showcolor;
+        showcolor = (color & RANDOMCOLOR) ? random(1,4) : color;
+        showcolor = ((color & BLINK) && (y & 2)) ? BLACK : (showcolor & ~BLINK);
         putchar(x + font_width * i,  y, text[i], showcolor);
       }
       // quick and dirty fix to avoid wakes
@@ -686,4 +687,17 @@ void ht1632c::write(const char *str)
   //x_cur = 0;
   //y_cur = 0;
   sendframe();
+}
+
+/* calculate frames per second speed, for benchmark */
+
+void ht1632c::profile() {
+  const byte frame_interval = 50;
+  static unsigned long last_micros = 0;
+  static byte frames = 0;
+  if (++frames == frame_interval) {
+    fps = (frame_interval * 1000000) / (micros() - last_micros);
+    frames = 0;
+    last_micros = micros();
+  }
 }

@@ -79,13 +79,13 @@
 //#define FONT_7x14   14
 //#define FONT_7x14B  15
 #define FONT_8x8    16
-#define FONT_8x13   17
-#define FONT_8x13B  18
-#define FONT_8x13O  19
-#define FONT_9x15   20
-#define FONT_9x15B  21
-#define FONT_8x16   22
-#define FONT_8x16B  23
+//#define FONT_8x13   17
+//#define FONT_8x13B  18
+//#define FONT_8x13O  19
+//#define FONT_9x15   20
+//#define FONT_9x15B  21
+//#define FONT_8x16   22
+//#define FONT_8x16B  23
 
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
@@ -177,6 +177,7 @@ public:
     void fill_l(byte x, byte y, byte color);
     void fill(byte x, byte y, byte color);
     void bezier(int x0, int y0, int x1, int y1, int x2, int y2, byte color);
+    void profile();
     
     void write(uint8_t chr);
     void write(const char *str);
@@ -194,6 +195,7 @@ public:
     byte font_height;
     byte x_cur;
     byte y_cur;
+    int fps;
 /*
     void _data_set();
     void _data_clr();

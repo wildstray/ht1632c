@@ -35,7 +35,7 @@ void compute_fps() {
   if (++cnt_frames == kComputeEveryFrames) {
     cnt_frames = 0;
     float fps = kComputeEveryFrames / ((millis() - last_millis) / 1000);
-    sprintf(fps_str, "%d fps", (int)fps);
+    sprintf(fps_str, "%d fps ", (int)fps);
     Serial.println(fps_str); 
     last_millis = millis();
   }
@@ -92,7 +92,7 @@ void loop ()
   Timer1.attachInterrupt(callback); 
   
   dotmatrix.clear();
-  dotmatrix.scrolltextxcolor(8, fps_str, RED, 50, 1, LEFT);
+  dotmatrix.hscrolltext(8, fps_str, RED, 50, 1, LEFT);
 
   char tmp[20] = "The end ;-)";
   byte len = strlen(tmp);
