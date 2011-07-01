@@ -22,13 +22,13 @@ void _clk_pulse(byte num)
 }
 */
 
-word pow2(byte exp)
+word inline pow2(byte exp)
 {
   word result = 1;
+
   while(exp--)
-  {
     result *= 2;
-  }
+
   return result;
 }
 
@@ -224,42 +224,53 @@ void ht1632c::plot (byte x, byte y, byte color)
 
 byte ht1632c::putchar(int x, int y, char c, byte color, byte attr)
 {
-  byte width = font_width;
   word dots, msb;
 
   if (x < -font_width || x > x_max + font_width || y < -font_height || y > y_max + font_height)
     return 0;
   
+  register byte width = font_width;
+  register byte height = font_height;
+
   c -= 32;
-  msb = pow2(font_height-1);
+  msb = pow2(height-1);
+  //attr = PROPORTIONAL; // TESTPOINT
   
   // some math with pointers... don't try this at home ;-)
-  prog_uint8_t *addr = font + c * font_width;
-  prog_uint16_t *waddr = wfont + c * font_width;
-  for (char col = 0; col < font_width; col++) {
-    dots = (font_height > 8) ? pgm_read_word_near(waddr + col) : pgm_read_byte_near(addr + col);
-    // future use... char attribute TODO
-    //if ((attr && BOLD) && (col > 0)) {
-    //  dots |= pgm_read_byte_near(addr-1);
-    //}
-    //if ((attr && ITALIC) && (col > 0)) {
-      //dots |= pgm_read_byte_near(&my3font[c][col-1]);
-    //}
-    if ((dots) || !(attr & PROPORTIONAL)) {
-      for (char row = 0; row < font_height; row++) {
+  prog_uint8_t *addr = font + c * width;
+  prog_uint16_t *waddr = wfont + c * width;
+  for (register char col = 0; col < width; col++) {
+    dots = (height > 8) ? pgm_read_word_near(waddr + col) : pgm_read_byte_near(addr + col);
+    if (attr & PROPORTIONAL) {
+      if (dots) 
+      {
+        for (register char row = 0; row < height; row++) {
+          if (dots & (msb>>row)) {
+            plot(x+col, y+row, (color & MULTICOLOR) ? random(1,4) : color);
+          } else {
+            plot(x+col, y+row, BLACK);
+          }
+        }
+      } else {
+        width--;
+        x--;
+      }
+    } else {
+      for (register char row = 0; row < height; row++) {
         if (dots & (msb>>row)) {
           plot(x+col, y+row, (color & MULTICOLOR) ? random(1,4) : color);
         } else {
           plot(x+col, y+row, BLACK);
         }
-    //if ((attr && UNDERLINE) && (row == 7))
-    //    plot(x+col, y+row, color);
-    //else if ((row == 7))
-    //    plot(x+col, y+row, BLACK);
       }
-    } else if (attr & PROPORTIONAL) {
-      width--;
-      x--;
+    }
+  }
+  if (attr & PROPORTIONAL)
+  { 
+    // TODO!
+  } else {
+    for (register char row = 0; row < height; row++) {
+      plot(x + width, y+row, BLACK);
     }
   }
   return width;
@@ -288,18 +299,21 @@ void ht1632c::putbitmap(int x, int y, prog_uint16_t *bitmap, byte w, byte h, byt
 
 /* text only scrolling functions */
 
-void ht1632c::hscrolltext(int y, const char *text, byte color, int delaytime, int times, byte dir)
+void ht1632c::hscrolltext(int y, char *text, byte color, int delaytime, int times, byte dir)
 {
-  int x, len = strlen(text);
   byte showcolor;
+  int x, len = strlen(text);
+  register byte width = font_width;
+  width++;
+  
   while (times) {
-    for ((dir) ? x = - (len * font_width) : x = x_max; (dir) ? x <= x_max : x > - (len * font_width); (dir) ? x++ : x--)
+    for ((dir) ? x = - (len * width) : x = x_max; (dir) ? x <= x_max : x > - (len * width); (dir) ? x++ : x--)
     {
       for (int i = 0; i < len; i++)
       {
         showcolor = (color & RANDOMCOLOR) ? random(1,4) : color;
         showcolor = ((color & BLINK) && (x & 2)) ? BLACK : (showcolor & ~BLINK);
-        putchar(x + font_width * i,  y, text[i], showcolor);
+        putchar(x + width * i,  y, text[i], showcolor);
       }
       sendframe();
       delay(delaytime);
@@ -308,10 +322,13 @@ void ht1632c::hscrolltext(int y, const char *text, byte color, int delaytime, in
   }
 }
 
-void ht1632c::vscrolltext(int x, const char *text, byte color, int delaytime, int times, byte dir)
+void ht1632c::vscrolltext(int x, char *text, byte color, int delaytime, int times, byte dir)
 {
-  int y, len = strlen(text);
   byte showcolor;
+  int y, len = strlen(text);
+  register byte width = font_width;
+  width++;
+
   while (times) {
     for ((dir) ? y = - font_height : y = y_max + 1; (dir) ? y <= y_max + 1 : y > - font_height; (dir) ? y++ : y--)
     {
@@ -357,11 +374,13 @@ void ht1632c::setfont(byte userfont)
 	font_height = 8;
 	break;
 #endif
+#ifdef FONT_5x7W
     case FONT_5x7W:
 	font = (prog_uint8_t *) &font_5x7w[0];
 	font_width = 5;
 	font_height = 8;
 	break;
+#endif
 #ifdef FONT_6x10
     case FONT_6x10:
 	wfont = (prog_uint16_t *) &font_6x10[0];

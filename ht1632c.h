@@ -79,13 +79,13 @@
 //#define FONT_7x14   14
 //#define FONT_7x14B  15
 #define FONT_8x8    16
-//#define FONT_8x13   17
-//#define FONT_8x13B  18
+#define FONT_8x13   17
+#define FONT_8x13B  18
 //#define FONT_8x13O  19
-//#define FONT_9x15   20
-//#define FONT_9x15B  21
-//#define FONT_8x16   22
-//#define FONT_8x16B  23
+#define FONT_9x15   20
+#define FONT_9x15B  21
+#define FONT_8x16   22
+#define FONT_8x16B  23
 
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
@@ -166,8 +166,8 @@ public:
     byte getpixel(byte x, byte y);
     byte putchar(int x, int y, char c, byte color = GREEN, byte attr = 0);
     void putbitmap(int x, int y, prog_uint16_t *bitmap, byte w, byte h, byte color);
-    void hscrolltext(int y, const char *text, byte color, int delaytime, int times = 1, byte dir = LEFT);
-    void vscrolltext(int x, const char *text, byte color, int delaytime, int times = 1, byte dir = UP);
+    void hscrolltext(int y, char *text, byte color, int delaytime, int times = 1, byte dir = LEFT);
+    void vscrolltext(int x, char *text, byte color, int delaytime, int times = 1, byte dir = UP);
     void setfont(byte userfont);
     void line(int x0, int y0, int x1, int y1, byte color);
     void rect(int x0, int y0, int x1, int y1, byte color);
