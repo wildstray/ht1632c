@@ -6,7 +6,12 @@
 #ifndef ht1632c_h
 #define ht1632c_h
 
+#if defined(ARDUINO) && ARDUINO >= 100
+#include <Arduino.h>
+#else
 #include <WProgram.h>
+#endif
+
 #include <avr/pgmspace.h>
 
 /*
@@ -86,6 +91,8 @@
 #define FONT_9x15B  21
 #define FONT_8x16   22
 #define FONT_8x16B  23
+
+#define FONT_8x13BK 118
 
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
@@ -179,9 +186,9 @@ public:
     void bezier(int x0, int y0, int x1, int y1, int x2, int y2, byte color);
     void profile();
     
-    void write(uint8_t chr);
-    void write(const char *str);
-    //void write(const uint8_t *buffer, size_t size);
+    virtual size_t write(uint8_t chr);
+    virtual size_t write(const char *str);
+    //virtual size_t write(const uint8_t *buffer, size_t size);
             
     byte *framebuffer;
     word framesize;

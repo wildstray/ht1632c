@@ -8,7 +8,8 @@
 
 #define ht1632c_lib
 #include <ht1632c.h>
-#include "font.h"
+#include "font_b.h"
+#include "font_koi8.h"
 
 //void ht1632c::_clk_pulse(byte num)
 /*
@@ -231,8 +232,8 @@ byte ht1632c::putchar(int x, int y, char c, byte color, byte attr)
   
   register byte width = font_width;
   register byte height = font_height;
-
-  c -= 32;
+  if ((unsigned char) c >= 0xc0) c -= 0x41;
+  c -= 0x20; 
   msb = pow2(height-1);
   //attr = PROPORTIONAL; // TESTPOINT
   
@@ -514,6 +515,13 @@ void ht1632c::setfont(byte userfont)
 	font_height = 16;
 	break;
 #endif
+#ifdef FONT_8x13BK
+    case FONT_8x13BK:
+	wfont = (prog_uint16_t *) &font_8x13bk[0];
+	font_width = 8;
+	font_height = 13;
+	break;
+#endif
   }
 }
 
@@ -674,7 +682,7 @@ void ht1632c::fill(byte x, byte y, byte color)
   fill_l(x-1, y, color);
 }
 
-void ht1632c::write(uint8_t chr)
+size_t ht1632c::write(uint8_t chr)
 {
   byte x, y;
   if (chr == '\n') {
@@ -685,9 +693,10 @@ void ht1632c::write(uint8_t chr)
     //y_cur = 0;
   }
   //sendframe();
+  return 1;
 }
 
-void ht1632c::write(const char *str)
+size_t ht1632c::write(const char *str)
 {
   byte x, y;
   byte len = strlen(str);
@@ -706,6 +715,7 @@ void ht1632c::write(const char *str)
   //x_cur = 0;
   //y_cur = 0;
   sendframe();
+  return len;
 }
 
 /* calculate frames per second speed, for benchmark */
