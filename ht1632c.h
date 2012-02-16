@@ -44,7 +44,7 @@
 #define HT1632_ADDR_LEN   (1 << 6)  /* Address are 7 bits */
 
 #define HT1632_CS_NONE       0  /* None of ht1632c selected */
-#define HT1632_CS_ALL      255  /* All of ht1632c selected */
+#define HT1632_CS_ALL       15  /* All of ht1632c selected */
 
 #define GEOM_32x16	    32	/* 32x16 */
 #define GEOM_24x16	    24	/* 24x16 */
@@ -109,46 +109,10 @@ struct bits {
 } __attribute__((__packed__));
 
 #define SBIT(port,pin) ((*(volatile struct bits*)&port).b##pin)
-/*
-#define _clr(name, port, bit) void ht1632c::name##_clr() { SBIT(port, bit) = 0; }
-#define _set(name, port, bit) void ht1632c::name##_set() { SBIT(port, bit) = 1; }
-#define _out(name, port, bit) void ht1632c::name##_out() { SBIT((_SFR_IO8(_SFR_IO_ADDR(port)-1)), bit) = 1; }
-*/
 #define _clr(name, port, bit) void inline name##_clr() { SBIT(port, bit) = 0; }
 #define _set(name, port, bit) void inline name##_set() { SBIT(port, bit) = 1; }
 #define _out(name, port, bit) void name##_out() { SBIT((_SFR_IO8(_SFR_IO_ADDR(port)-1)), bit) = 1; }
 
-class _data {
-public:
-    _data();
-    void clr();
-    void set();
-};
-
-class _wr {
-public:
-    _wr();
-    void clr();
-    void set();
-};
-
-class _clk {
-public:
-    _clk();
-    void clr();
-    void set();
-    void pulse(byte num);
-};
-
-class _cs {
-public:
-    _cs();
-    void clr();
-    void set();
-};
-
-
-//class ht1632c : private _data, private _wr, private _clk, private _cs {
 class ht1632c : public Print {
 
 #ifdef putchar
@@ -192,7 +156,7 @@ public:
             
     byte *framebuffer;
     word framesize;
-//    byte cs_max;
+    byte cs_max;
     byte x_max;
     byte y_max;
     boolean bicolor;
@@ -203,27 +167,12 @@ public:
     byte x_cur;
     byte y_cur;
     int fps;
-/*
-    void _data_set();
-    void _data_clr();
-    void _data_out();
-    void _wr_set();
-    void _wr_clr();
-    void _wr_out();
-    void _clk_set();
-    void _clk_clr();
-    void _clk_out();
-    void _clk_pulse(byte num);
-    void _cs_set();
-    void _cs_clr();
-    void _cs_out();
-*/
+
 };
 
 
 #ifdef ht1632c_lib
 
-byte cs_max;
 extern    void _data_set();
 extern    void _data_clr();
 extern    void _data_out();
@@ -249,9 +198,8 @@ extern    void _chipselect(byte num);
 #define ht1632c(port, data, wr, clk, cs, ...) ht1632c(__VA_ARGS__); \
 _clr(_data,port,data); _clr(_wr,port,wr); _clr(_clk,port,clk); _clr(_cs,port,cs); \
 _set(_data,port,data); _set(_wr,port,wr); _set(_clk,port,clk); _set(_cs,port,cs); \
-_out(_data,port,data); _out(_wr,port,wr); _out(_clk,port,clk); _out(_cs,port,cs);
+_out(_data,port,data); _out(_wr,port,wr); _out(_clk,port,clk); _out(_cs,port,cs); \
 
-extern    byte cs_max;
 void _data_set();
 void _data_clr();
 void _data_out();
@@ -281,10 +229,10 @@ void _chipselect(register byte cs)
 {
   if (cs == HT1632_CS_ALL) {
     _cs_clr();
-    _clk_pulse(cs_max);
+    _clk_pulse(HT1632_CS_ALL);
   } else if (cs == HT1632_CS_NONE) {
     _cs_set();
-    _clk_pulse(cs_max);
+    _clk_pulse(HT1632_CS_ALL);
   } else {
     _cs_clr();
     _clk_pulse(1);
