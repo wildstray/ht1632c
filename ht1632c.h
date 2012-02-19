@@ -125,20 +125,18 @@ public:
     //void begin(const byte data, const byte wr, const byte clk, const byte cs, byte geometry, byte number);
     //void begin(const byte data, const byte wr, const byte cs1, const byte cs2, const byte cs3, const byte cs4, byte geometry, byte number);
 
-//    void chipselect(byte cs);
-//    void writebits (byte bits, byte len);
     void sendcmd(byte cs, byte command);
     void setup();
     void pwm(byte value);
     void sendframe();
     void clear();
-    void update_framebuffer(word addr, byte target_bitval, byte pixel_bitval);
+    void update_framebuffer(byte *ptr, byte target, byte pixel);
     void plot(byte x, byte y, byte color);
     byte getpixel(byte x, byte y);
-    byte putchar(int x, int y, char c, byte color = GREEN, byte attr = 0);
+    byte putchar(int x, int y, char c, byte color = GREEN, byte attr = 0, byte bgcolor = BLACK);
     void putbitmap(int x, int y, prog_uint16_t *bitmap, byte w, byte h, byte color);
-    void hscrolltext(int y, char *text, byte color, int delaytime, int times = 1, byte dir = LEFT);
-    void vscrolltext(int x, char *text, byte color, int delaytime, int times = 1, byte dir = UP);
+    void hscrolltext(int y, char *text, byte color, int delaytime, int times = 1, byte dir = LEFT, byte attr = 0, byte bgcolor = BLACK);
+    void vscrolltext(int x, char *text, byte color, int delaytime, int times = 1, byte dir = UP, byte attr = 0, byte bgcolor = BLACK);
     void setfont(byte userfont);
     void line(int x0, int y0, int x1, int y1, byte color);
     void rect(int x0, int y0, int x1, int y1, byte color);
@@ -149,13 +147,14 @@ public:
     void fill(byte x, byte y, byte color);
     void bezier(int x0, int y0, int x1, int y1, int x2, int y2, byte color);
     void profile();
-    
+
     virtual size_t write(uint8_t chr);
     virtual size_t write(const char *str);
     //virtual size_t write(const uint8_t *buffer, size_t size);
-            
-    byte *framebuffer;
-    word framesize;
+
+    byte *g_fb;
+    byte *r_fb;
+    byte fb_size;
     byte cs_max;
     byte x_max;
     byte y_max;
