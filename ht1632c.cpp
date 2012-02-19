@@ -11,22 +11,36 @@
 #include "font_b.h"
 #include "font_koi8.h"
 
-/* if you undef this, you can try ALPHA code using hw SPI */
-/* WARNING: to use SPI you must connect DATA->D11, WR->D13 */
-/* and you have to #include <SPI.h> in you project .pde */
+/* fast integer (1 byte) modulus */
 
-#define USE_BITBANGING
-
-/* fast integer 2^x */
-
-word inline pow2(byte exp)
+byte _mod(byte n, byte d)
 {
-  word result = 1;
+  while(n >= d)
+    n -= d;
 
-  while(exp--)
-    result *= 2;
+  return n;
+}
 
-  return result;
+/* fast integer (1 byte) division */
+
+byte _div(byte n, byte d)
+{
+  byte q = 0;
+  while(n >= d)
+  {
+    n -= d;
+    q++;
+  }
+  return q;
+}
+
+/* fast integer (1 byte) PRNG */
+
+byte _rnd(byte min, byte max)
+{
+  static byte seed;
+  seed = (21 * seed + 21);
+  return min + _mod(seed, --max);
 }
 
 /* ht1632c class constructor */
@@ -38,8 +52,9 @@ ht1632c::ht1632c(const byte geometry, const byte number)
   x_max = (32 * number) - 1;
   y_max = 15;
   cs_max = 4 * number;
-  framesize = 32 * cs_max;
-  framebuffer = (byte*) malloc(framesize);
+  fb_size = 16 * cs_max;
+  g_fb = (byte*) malloc(fb_size);
+  r_fb = (byte*) malloc(fb_size);
   setfont(FONT_5x7W);
   x_cur = 0;
   y_cur = 0;
@@ -53,8 +68,6 @@ ht1632c::ht1632c(const byte geometry, const byte number)
 
 /* send a command to selected HT1632Cs */
 
-#ifdef USE_BITBANGING
-
 void ht1632c::sendcmd(byte cs, byte command)
 {
   _chipselect(cs);
@@ -64,29 +77,10 @@ void ht1632c::sendcmd(byte cs, byte command)
   _chipselect(HT1632_CS_NONE);
 }
 
-#else
-
-void ht1632c::sendcmd(byte cs, byte command)
-{
-  _chipselect(cs);
-  word val = HT1632_ID_CMD << 13 + command << 5;
-  SPI.transfer(val >> 8);
-  SPI.transfer(val & 0xFF);
-  _chipselect(HT1632_CS_NONE);
-}
-
-#endif
-
 /* HT1632Cs based display initialization  */
 
 void ht1632c::setup()
 {
-#ifndef USE_BITBANGING
-  SPI.setClockDivider(SPI_CLOCK_DIV2);
-  SPI.setBitOrder(MSBFIRST);
-  SPI.setDataMode(SPI_MODE3);
-  SPI.begin(); 
-#endif
   noInterrupts();
   sendcmd(HT1632_CS_ALL, HT1632_CMD_SYSDIS);
   sendcmd(HT1632_CS_ALL, HT1632_CMD_COMS00);
@@ -107,70 +101,28 @@ void ht1632c::pwm(byte value)
 
 /* write the framebuffer to the display - to be used after one or more textual or graphic functions */ 
 
-#ifdef USE_BITBANGING
-
 void ht1632c::sendframe()
 {
-  byte data, offs, cs, csm;
+  byte offs, cs, csm;
   word addr;
   csm = cs_max;
 
   noInterrupts();
   for (cs = 0; cs < csm; cs++)
   {
+    addr = cs + (cs & ~1) - (csm - 2) * _div((cs << 1), csm);
+    addr <<= 4;
     _chipselect(cs + 1);
     _writebits(HT1632_ID_WR, HT1632_ID_LEN);
     _writebits(0, HT1632_ADDR_LEN);
-
-    addr = cs + (cs & 2) - 2 * !!(cs & csm >> 1);
-    addr <<= 4;
-
     for (offs = 0; offs < 16; offs++)
-      _writebits(framebuffer[addr++], HT1632_DATA_LEN);
-    addr -= 16;
-    addr += csm * 16;
+      _writebits(g_fb[addr+offs], HT1632_DATA_LEN);
     for (offs = 0; offs < 16; offs++)
-      _writebits(framebuffer[addr++], HT1632_DATA_LEN);
+      _writebits(r_fb[addr+offs], HT1632_DATA_LEN);
     _chipselect(HT1632_CS_NONE);
   }
   interrupts();
 }
-
-#else
-
-void ht1632c::sendframe()
-{
-  byte offs, cs, val, csm, head, tail;
-  word addr;
-  csm = cs_max;
-
-  noInterrupts();
-  for (cs = 0; cs < csm; cs++)
-  {
-    _chipselect(cs + 1);
-    SPI.transfer(HT1632_ID_WR << 5);
-    addr = cs + (cs & 2) - 2*!!(cs & csm >> 1);
-    addr <<= 4;
-    head = framebuffer[addr] >> 2;
-    tail = framebuffer[addr + csm * 16] >> 2;
-    SPI.transfer(head);
-    for (offs = 0; offs < 16; offs++) {
-      val = framebuffer[addr++] << 6;
-      val |= ((offs < 15) ? framebuffer[addr] >> 2 : tail);
-      SPI.transfer(val);
-    }
-    addr -= 16;
-    addr += csm * 16;
-    for (offs = 0; offs < 16; offs++) {
-      val = framebuffer[addr++] << 6;
-      val |= ((offs < 15) ? framebuffer[addr] >> 2 : head);
-      SPI.transfer(val);
-    }
-    _chipselect(HT1632_CS_NONE);
-  }
-  interrupts();
-}
-#endif
 
 /* clear the display */
 
@@ -178,13 +130,14 @@ void ht1632c::clear()
 {
   x_cur = 0;
   y_cur = 0;
-  memset(framebuffer, 0, framesize);
+  memset(g_fb, 0, fb_size);
+  memset(r_fb, 0, fb_size);
   sendframe();
 }
 
-void ht1632c::update_framebuffer(word addr, byte target, byte pixel) 
+void ht1632c::update_framebuffer(byte *ptr, byte target, byte pixel) 
 {
-  byte &val = framebuffer[addr];
+  byte &val = *ptr;
   val |= pixel;
   if (!target) 
     val ^= pixel;
@@ -194,75 +147,50 @@ void ht1632c::update_framebuffer(word addr, byte target, byte pixel)
 
 void ht1632c::plot (byte x, byte y, byte color)
 {
-  byte val, csm;
+  byte val;
   word addr;
-  csm = cs_max;
 
-  if (x < 0 || x > x_max || y < 0 || y > y_max)
+  if (x > x_max || y > y_max)
     return;
 
-  addr = x + csm * (y & ~7);
+  addr = x + cs_max * (y & ~7);
   val = 128 >> (y & 7);
-  update_framebuffer(addr, (color & GREEN), val);
-  addr += csm * 16;
-  update_framebuffer(addr, (color & RED), val); 
+  update_framebuffer(g_fb+addr, (color & GREEN), val);
+  update_framebuffer(r_fb+addr, (color & RED), val); 
 }
 
 /* print a single character */
 
-byte ht1632c::putchar(int x, int y, char c, byte color, byte attr)
+byte ht1632c::putchar(int x, int y, char c, byte color, byte attr, byte bgcolor)
 {
   word dots, msb;
   char col, row;
 
-  if (x < -font_width || x > x_max + font_width || y < -font_height || y > y_max + font_height)
-    return 0;
-  
   byte width = font_width;
   byte height = font_height;
+
+  if (x < -width || x > x_max + width || y < -height || y > y_max + height)
+    return 0;
+
   if ((unsigned char) c >= 0xc0) c -= 0x41;
   c -= 0x20; 
-  msb = pow2(height-1);
-  //attr = PROPORTIONAL; // TESTPOINT
-  
+  msb = 1 << (height - 1);
+
   // some math with pointers... don't try this at home ;-)
   prog_uint8_t *addr = font + c * width;
   prog_uint16_t *waddr = wfont + c * width;
+
   for (col = 0; col < width; col++) {
     dots = (height > 8) ? pgm_read_word_near(waddr + col) : pgm_read_byte_near(addr + col);
-    if (attr & PROPORTIONAL) {
-      if (dots) 
-      {
-        for (row = 0; row < height; row++) {
-          if (dots & (msb >> row)) {
-            plot(x + col, y + row, (color & MULTICOLOR) ? random(1, 4) : color);
-          } else {
-            plot(x + col, y + row, BLACK);
-          }
-        }
-      } else {
-        width--;
-        x--;
-      }
-    } else {
-      for (row = 0; row < height; row++) {
-        if (dots & (msb >> row)) {
-          plot(x + col, y + row, (color & MULTICOLOR) ? random(1, 4) : color);
-        } else {
-          plot(x + col, y + row, BLACK);
-        }
-      }
-    }
-  }
-  if (attr & PROPORTIONAL)
-  { 
-    // TODO!
-  } else {
     for (row = 0; row < height; row++) {
-      plot(x + width, y + row, BLACK);
+      if (dots & (msb >> row)) {
+        plot(x + col, y + row, (color & MULTICOLOR) ? _rnd(1, 4) : color);
+      } else {
+        plot(x + col, y + row, bgcolor);
+      }
     }
   }
-  return width;
+  return ++width;
 }
 
 /* put a bitmap in the coordinates x, y */
@@ -274,7 +202,7 @@ void ht1632c::putbitmap(int x, int y, prog_uint16_t *bitmap, byte w, byte h, byt
 
   byte col, row;
 
-  word msb = pow2(w - 1);
+  word msb = 1 << (w - 1);
   for (row = 0; row < h; row++)
   {
     uint16_t dots = pgm_read_word_near(&bitmap[row]);
@@ -291,11 +219,12 @@ void ht1632c::putbitmap(int x, int y, prog_uint16_t *bitmap, byte w, byte h, byt
 
 /* text only scrolling functions */
 
-void ht1632c::hscrolltext(int y, char *text, byte color, int delaytime, int times, byte dir)
+void ht1632c::hscrolltext(int y, char *text, byte color, int delaytime, int times, byte dir, byte attr, byte bgcolor)
 {
   byte showcolor;
-  int x, len = strlen(text);
+  int x, offs, len = strlen(text);
   byte width = font_width;
+  byte height = font_height;
   width++;
 
   while (times) {
@@ -303,9 +232,16 @@ void ht1632c::hscrolltext(int y, char *text, byte color, int delaytime, int time
     {
       for (int i = 0; i < len; i++)
       {
-        showcolor = (color & RANDOMCOLOR) ? random(1,4) : color;
+        offs = width * i;
+        (dir) ? offs-- : offs++;
+        putchar(x + offs,  y, text[i], bgcolor, attr, bgcolor);
+      }
+      for (int i = 0; i < len; i++)
+      {
+        showcolor = (color & RANDOMCOLOR) ? _rnd(1, 4) : color;
         showcolor = ((color & BLINK) && (x & 2)) ? BLACK : (showcolor & ~BLINK);
-        putchar(x + width * i,  y, text[i], showcolor);
+        offs = width * i;
+        putchar(x + offs,  y, text[i], showcolor, attr, bgcolor);
       }
       sendframe();
       delay(delaytime);
@@ -314,11 +250,13 @@ void ht1632c::hscrolltext(int y, char *text, byte color, int delaytime, int time
   }
 }
 
-void ht1632c::vscrolltext(int x, char *text, byte color, int delaytime, int times, byte dir)
+void ht1632c::vscrolltext(int x, char *text, byte color, int delaytime, int times, byte dir, byte attr, byte bgcolor)
 {
   byte showcolor;
-  int y, len = strlen(text);
+  int y, voffs, len = strlen(text);
+  byte offs;
   byte width = font_width;
+  byte height = font_height;
   width++;
 
   while (times) {
@@ -326,12 +264,16 @@ void ht1632c::vscrolltext(int x, char *text, byte color, int delaytime, int time
     {
       for (int i = 0; i < len; i++)
       {
-        showcolor = (color & RANDOMCOLOR) ? random(1,4) : color;
-        showcolor = ((color & BLINK) && (y & 2)) ? BLACK : (showcolor & ~BLINK);
-        putchar(x + font_width * i,  y, text[i], showcolor);
+        offs = width * i;
+        voffs = (dir) ? -1 : 1;
+        putchar(x + offs,  y + voffs, text[i], bgcolor, attr, bgcolor);
       }
-      // quick and dirty fix to avoid wakes
-      line (x, y - 1, x + font_width * len, y - 1, BLACK);
+      for (int i = 0; i < len; i++)
+      {
+        showcolor = (color & RANDOMCOLOR) ? _rnd(1, 4) : color;
+        showcolor = ((color & BLINK) && (y & 2)) ? BLACK : (showcolor & ~BLINK);
+        putchar(x + width * i,  y, text[i], showcolor, attr, bgcolor);
+      }
       sendframe();
       delay(delaytime);
     }
@@ -629,15 +571,13 @@ void ht1632c::bezier(int x0, int y0, int x1, int y1, int x2, int y2, byte color)
 
 byte ht1632c::getpixel(byte x, byte y)
 {
-  byte csm, g, r, val;
+  byte g, r, val;
   word addr;
 
-  csm = cs_max;
-
-  addr = (x & 63) + csm * (y & ~7);
-  g = framebuffer[addr];
-  r = framebuffer[addr + csm >> 4];
-  val = 1 << (7 - y & 7);
+  addr = x + cs_max * (y & ~7);
+  val = 128 << (y & 7);
+  g = g_fb[addr];
+  r = r_fb[addr];
   return (g & val) ? GREEN : BLACK | (r & val) ? RED : BLACK;
 }
 
@@ -651,7 +591,7 @@ void ht1632c::fill_r(byte x, byte y, byte color)
   {
     plot(x, y, color);
     fill_r(++x, y ,color);
-    x = x - 1;
+    x--;
     if (x > x_max) return;
     fill_r(x, y - 1, color);
     fill_r(x, y + 1, color);
@@ -666,7 +606,7 @@ void ht1632c::fill_l(byte x, byte y, byte color)
   {
     plot(x, y, color);
     fill_l(--x, y, color);
-    x = x + 1 ;
+    x++;
     fill_l(x, y - 1, color);
     fill_l(x, y + 1, color);
   }
@@ -675,7 +615,7 @@ void ht1632c::fill_l(byte x, byte y, byte color)
 void ht1632c::fill(byte x, byte y, byte color)
 {
   fill_r(x, y, color);
-  fill_l(x-1, y, color);
+  fill_l(x - 1, y, color);
 }
 
 /* Print class extension: TBD */
@@ -686,7 +626,7 @@ size_t ht1632c::write(uint8_t chr)
   if (chr == '\n') {
     //y_cur += font_height;
   } else {
-    //x_cur += putchar(x_cur, y_cur, chr, GREEN, PROPORTIONAL);
+    //x_cur += putchar(x_cur, y_cur, chr, GREEN);
     //x_cur = 0;
     //y_cur = 0;
   }
@@ -706,7 +646,7 @@ size_t ht1632c::write(const char *str)
         x_cur = 0;
         if (y_cur > y_max) break;
       } else {
-        x_cur += putchar(x_cur, y_cur, str[i], GREEN, PROPORTIONAL);
+        x_cur += putchar(x_cur, y_cur, str[i], GREEN);
         if (x_cur + font_width > x_max) break;
       }
     }
