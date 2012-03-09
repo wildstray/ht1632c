@@ -40,20 +40,68 @@ uint8_t _rnd(uint8_t min, uint8_t max)
 
 /* ht1632c class properties */
 
-volatile uint8_t *ht1632c::_port;
 uint8_t *ht1632c::g_fb;
 uint8_t *ht1632c::r_fb;
+volatile uint8_t *ht1632c::_port;
+#if defined (__AVR__)
 uint8_t ht1632c::_data;
 uint8_t ht1632c::_wr;
 uint8_t ht1632c::_clk;
 uint8_t ht1632c::_cs;
+#elif defined (__ARMEL__) || defined (__PIC32MX__)
+_port_t ht1632c::_data;
+_port_t ht1632c::_wr;
+_port_t ht1632c::_clk;
+_port_t ht1632c::_cs;
+#endif
 
 /* ht1632c class constructor */
 
+ht1632c::ht1632c(const uint8_t data, const uint8_t wr, const uint8_t clk, const uint8_t cs, const uint8_t geometry, const uint8_t number)
+{
+#if defined (__ARMEL__)
+  _data.dev = PIN_MAP[data].gpio_device;
+  _data.mask = PIN_MAP[data].gpio_bit;
+  _wr.dev = PIN_MAP[wr].gpio_device;
+  _wr.mask = PIN_MAP[wr].gpio_bit;
+  _clk.dev = PIN_MAP[clk].gpio_device;
+  _clk.mask = PIN_MAP[clk].gpio_bit;
+  _cs.dev = PIN_MAP[cs].gpio_device;
+  _cs.mask = PIN_MAP[cs].gpio_bit;
+
+  gpio_set_mode(_data.dev, _data.mask, GPIO_OUTPUT_PP);
+  gpio_set_mode(_wr.dev, _wr.mask, GPIO_OUTPUT_PP);
+  gpio_set_mode(_clk.dev, _clk.mask, GPIO_OUTPUT_PP);
+  gpio_set_mode(_cs.dev, _cs.mask, GPIO_OUTPUT_PP);
+#elif defined (__PIC32MX__)
+  _data.regs = (volatile p32_ioport *)portRegisters(digitalPinToPort(data));
+  _wr.regs = (volatile p32_ioport *)portRegisters(digitalPinToPort(wr));
+  _clk.regs = (volatile p32_ioport *)portRegisters(digitalPinToPort(clk));
+  _cs.regs = (volatile p32_ioport *)portRegisters(digitalPinToPort(cs));
+
+  _data.mask = digitalPinToBitMask(data);
+  _wr.mask = digitalPinToBitMask(wr);
+  _clk.mask = digitalPinToBitMask(clk);
+  _cs.mask = digitalPinToBitMask(cs);
+
+  _data.regs->tris.clr = _data.mask;
+  _data.regs->odc.clr  = _data.mask;
+  _wr.regs->tris.clr = _wr.mask;
+  _wr.regs->odc.clr  = _wr.mask;
+  _clk.regs->tris.clr = _clk.mask;
+  _clk.regs->odc.clr  = _clk.mask;
+  _cs.regs->tris.clr = _cs.mask;
+  _cs.regs->odc.clr  = _cs.mask;
+#endif
+  _setup(number);
+  clear();
+}
+
 ht1632c::ht1632c(volatile uint8_t *port, const uint8_t data, const uint8_t wr, const uint8_t clk, const uint8_t cs, const uint8_t geometry, const uint8_t number)
 {
-  if (geometry != GEOM_32x16) return;
+#if defined (__AVR__)
   _port = port;
+
   _data = 1 << (data & 7);
   _wr = 1 << (wr & 7);
   _clk = 1 << (clk & 7);
@@ -65,24 +113,39 @@ ht1632c::ht1632c(volatile uint8_t *port, const uint8_t data, const uint8_t wr, c
   _set(_clk);
   _set(_cs);
   _port++;
-
-  bicolor = true;
-  x_max = (32 * number) - 1;
-  y_max = 15;
-  cs_max = 4 * number;
-  fb_size = 16 * cs_max;
-  g_fb = (uint8_t*) malloc(fb_size);
-  r_fb = (uint8_t*) malloc(fb_size);
-  setfont(FONT_5x7W);
-  x_cur = 0;
-  y_cur = 0;
-
-  setup();
+#endif
+  _setup(number);
   clear();
-  Serial.begin(9600);
 }
 
 /* ht1632c class low level functions */
+
+inline void ht1632c::_set(_port_t port)
+{
+#if defined (__ARMEL__)
+  port.dev->regs->BSRR = BIT(port.mask);
+#elif defined (__PIC32MX__)
+  port.regs->lat.set = port.mask;
+#endif
+}
+
+inline void ht1632c::_toggle(_port_t port)
+{
+#if defined (__ARMEL__)
+  port.dev->regs->ODR = port.dev->regs->ODR ^ BIT(port.mask);
+#elif defined (__PIC32MX__)
+  port.regs->lat.inv = port.mask;
+#endif
+}
+
+inline void ht1632c::_reset(_port_t port)
+{
+#if defined (__ARMEL__)
+  port.dev->regs->BRR = BIT(port.mask);
+#elif defined (__PIC32MX__)
+  port.regs->lat.clr = port.mask;
+#endif
+}
 
 void ht1632c::_set(uint8_t val)
 {
@@ -133,6 +196,15 @@ void ht1632c::_reset(uint8_t val)
 #endif
 }
 
+inline void ht1632c::_pulse(uint8_t num, _port_t port)
+{
+  while(num--)
+  {
+    _set(port);
+    _toggle(port);
+  }
+}
+
 void ht1632c::_pulse(uint8_t num, uint8_t val)
 {
   while(num--)
@@ -153,23 +225,22 @@ void ht1632c::_writebits (uint8_t bits, uint8_t msb)
 
 void ht1632c::_chipselect(uint8_t cs)
 {
+  _reset(_cs);
   if (cs == HT1632_CS_ALL) {
-    _reset(_cs);
     _pulse(HT1632_CS_ALL, _clk);
   } else if (cs == HT1632_CS_NONE) {
     _set(_cs);
     _pulse(HT1632_CS_ALL, _clk);
   } else {
-    _reset(_cs);
     _pulse(1, _clk);
     _set(_cs);
-    _pulse(--cs, _clk);
+    _pulse(cs - 1, _clk);
   }
 }
 
 /* send a command to selected HT1632Cs */
 
-void ht1632c::sendcmd(uint8_t cs, uint8_t command)
+void ht1632c::_sendcmd(uint8_t cs, uint8_t command)
 {
   _chipselect(cs);
   _writebits(HT1632_ID_CMD, HT1632_ID_LEN);
@@ -180,16 +251,27 @@ void ht1632c::sendcmd(uint8_t cs, uint8_t command)
 
 /* HT1632Cs based display initialization  */
 
-void ht1632c::setup()
+void ht1632c::_setup(uint8_t number)
 {
+  bicolor = true;
+  x_max = (32 * number) - 1;
+  y_max = 15;
+  cs_max = 4 * number;
+  fb_size = 16 * cs_max;
+  g_fb = (uint8_t*) malloc(fb_size);
+  r_fb = (uint8_t*) malloc(fb_size);
+  setfont(FONT_5x7W);
+  x_cur = 0;
+  y_cur = 0;
+
   noInterrupts();
-  sendcmd(HT1632_CS_ALL, HT1632_CMD_SYSDIS);
-  sendcmd(HT1632_CS_ALL, HT1632_CMD_COMS00);
-  sendcmd(HT1632_CS_ALL, HT1632_CMD_MSTMD);
-  sendcmd(HT1632_CS_ALL, HT1632_CMD_RCCLK);
-  sendcmd(HT1632_CS_ALL, HT1632_CMD_SYSON);
-  sendcmd(HT1632_CS_ALL, HT1632_CMD_LEDON);
-  sendcmd(HT1632_CS_ALL, HT1632_CMD_PWM);
+  _sendcmd(HT1632_CS_ALL, HT1632_CMD_SYSDIS);
+  _sendcmd(HT1632_CS_ALL, HT1632_CMD_COMS00);
+  _sendcmd(HT1632_CS_ALL, HT1632_CMD_MSTMD);
+  _sendcmd(HT1632_CS_ALL, HT1632_CMD_RCCLK);
+  _sendcmd(HT1632_CS_ALL, HT1632_CMD_SYSON);
+  _sendcmd(HT1632_CS_ALL, HT1632_CMD_LEDON);
+  _sendcmd(HT1632_CS_ALL, HT1632_CMD_PWM);
   interrupts();
 }
 
@@ -198,7 +280,7 @@ void ht1632c::setup()
 void ht1632c::pwm(uint8_t value)
 {
   noInterrupts();
-  sendcmd(HT1632_CS_ALL, HT1632_CMD_PWM | value);
+  _sendcmd(HT1632_CS_ALL, HT1632_CMD_PWM | value);
   interrupts();
 }
 
@@ -244,7 +326,7 @@ void ht1632c::clear()
   sendframe();
 }
 
-void ht1632c::update_framebuffer(uint8_t *ptr, uint8_t target, uint8_t pixel)
+inline void ht1632c::_update_fb(uint8_t *ptr, uint8_t target, uint8_t pixel)
 {
   uint8_t &val = *ptr;
   val |= pixel;
@@ -270,9 +352,8 @@ void ht1632c::plot (uint8_t x, uint8_t y, uint8_t color)
 #endif
   val = 128 >> (y & 7);
 
-  update_framebuffer(g_fb+addr, (color & GREEN), val);
-  update_framebuffer(r_fb+addr, (color & RED), val);
-
+  _update_fb(g_fb+addr, (color & GREEN), val);
+  _update_fb(r_fb+addr, (color & RED), val);
 }
 
 /* print a single character */
@@ -705,43 +786,47 @@ uint8_t ht1632c::getpixel(uint8_t x, uint8_t y)
 
 /* boundary flood fill with the seed in x, y coordinates */
 
-void ht1632c::fill_r(uint8_t x, uint8_t y, uint8_t color)
+void ht1632c::_fill_r(uint8_t x, uint8_t y, uint8_t color)
 {
   if (x > x_max) return;
   if (y > y_max) return;
   if (!getpixel(x, y))
   {
     plot(x, y, color);
-    fill_r(++x, y ,color);
+    _fill_r(++x, y ,color);
     x--;
-    fill_r(x, y - 1, color);
-    fill_r(x, y + 1, color);
+    _fill_r(x, y - 1, color);
+    _fill_r(x, y + 1, color);
   }
 }
 
-void ht1632c::fill_l(uint8_t x, uint8_t y, uint8_t color)
+void ht1632c::_fill_l(uint8_t x, uint8_t y, uint8_t color)
 {
   if (x > x_max) return;
   if (y > y_max) return;
   if (!getpixel(x, y))
   {
     plot(x, y, color);
-    fill_l(--x, y, color);
+    _fill_l(--x, y, color);
     x++;
-    fill_l(x, y - 1, color);
-    fill_l(x, y + 1, color);
+    _fill_l(x, y - 1, color);
+    _fill_l(x, y + 1, color);
   }
 }
 
 void ht1632c::fill(uint8_t x, uint8_t y, uint8_t color)
 {
-  fill_r(x, y, color);
-  fill_l(x - 1, y, color);
+  _fill_r(x, y, color);
+  _fill_l(x - 1, y, color);
 }
 
 /* Print class extension: TBD */
 
+#ifdef PRINT_NEW
 size_t ht1632c::write(uint8_t chr)
+#else
+void ht1632c::write(uint8_t chr)
+#endif
 {
   uint8_t x, y;
   if (chr == '\n') {
@@ -752,10 +837,16 @@ size_t ht1632c::write(uint8_t chr)
     //y_cur = 0;
   }
   //sendframe();
+#ifdef PRINT_NEW
   return 1;
+#endif
 }
 
+#ifdef PRINT_NEW
 size_t ht1632c::write(const char *str)
+#else
+void ht1632c::write(const char *str)
+#endif
 {
   uint8_t x, y;
   uint8_t len = strlen(str);
@@ -774,7 +865,9 @@ size_t ht1632c::write(const char *str)
   //x_cur = 0;
   //y_cur = 0;
   sendframe();
+#ifdef PRINT_NEW
   return len;
+#endif
 }
 
 /* calculate frames per second speed, for benchmark */
