@@ -329,9 +329,13 @@ void ht1632c::clear()
 inline void ht1632c::_update_fb(uint8_t *ptr, uint8_t target, uint8_t pixel)
 {
   uint8_t &val = *ptr;
+#if defined (__ARMEL__)
+  (target) ? val |= pixel : val &= ~pixel;
+#else
   val |= pixel;
   if (!target)
     val ^= pixel;
+#endif
 }
 
 /* put a single pixel in the coordinates x, y */
