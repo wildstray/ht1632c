@@ -3,7 +3,7 @@
 #include <string.h>
 #include "ht1632c.h"
 #include "Print.h"
-#include "font_b.h"
+#include "font.h"
 #include "font_koi8.h"
 
 /* fast integer (1 uint8_t) modulus - returns n % d */

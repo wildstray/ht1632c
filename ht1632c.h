@@ -15,6 +15,12 @@
 /* Arduino specific definitions */
 
 #if defined(__AVR__)
+#ifndef prog_uint8_t
+#define prog_uint8_t const uint8_t
+#endif
+#ifndef prog_uint16_t
+#define prog_uint16_t const uint16_t
+#endif
 #endif
 
 /* Chipkit specific definitions */
